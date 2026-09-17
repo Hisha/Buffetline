@@ -1,3 +1,5 @@
+local _, BuffetLine = ...
+
 local panel
 local widgets
 local menu

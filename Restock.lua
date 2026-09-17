@@ -1,3 +1,5 @@
+local _, BuffetLine = ...
+
 local function ExtractID(link)
 	if not link then
 		return nil

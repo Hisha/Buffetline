@@ -1,3 +1,5 @@
+local _, BuffetLine = ...
+
 local widget
 local buttons = {}
 local lockIcon
