@@ -211,8 +211,7 @@ function BuffetLine.BuildOptions()
 end
 
 function BuffetLine.ToggleMenu()
-	local x, y = GetCursorPosition()
-	ToggleDropDownMenu(1, nil, menu, x, y)
+	ToggleDropDownMenu(1, nil, menu, "cursor", 0, 0)
 end
 
 SLASH_BUFFETLINE1 = "/buffetline"

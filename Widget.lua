@@ -83,7 +83,6 @@ local function ApplyButton(button, stock, placeholder)
 		button:SetAttribute("item", stock.link)
 		button:SetAttribute("bag", stock.bag)
 		button:SetAttribute("slot", stock.slot)
-		button:SetAttribute("button", "LeftButton")
 		button:SetScript("OnEnter", function(self)
 			if not stock.link then
 				return
@@ -115,7 +114,6 @@ local function ApplyButton(button, stock, placeholder)
 		button:SetAttribute("item", nil)
 		button:SetAttribute("bag", nil)
 		button:SetAttribute("slot", nil)
-		button:SetAttribute("button", nil)
 		button:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			if self.kind == "mageFood" then

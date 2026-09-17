@@ -10,7 +10,6 @@ BuffetLine.CONJURED = {
 	[2136] = true,
 	[2288] = true,
 	[3772] = true,
-	[4540] = true,
 	[5349] = true,
 	[5350] = true,
 	[8075] = true,
@@ -21,10 +20,8 @@ BuffetLine.CONJURED = {
 	[22018] = true,
 	[22019] = true,
 	[22895] = true,
-	[28112] = true,
 	[30703] = true,
 	[34062] = true,
-	[42999] = true,
 	[43518] = true,
 	[43523] = true,
 }
@@ -68,6 +65,26 @@ BuffetLine.buckets = {
 local function ResetBuckets()
 	for k in pairs(BuffetLine.buckets) do
 		wipe(BuffetLine.buckets[k])
+	end
+end
+
+local pendingTimers = {}
+local timerFrame
+
+local function After(delay, func)
+	tinsert(pendingTimers, { time = GetTime() + delay, func = func })
+	if not timerFrame then
+		timerFrame = CreateFrame("Frame")
+		timerFrame:SetScript("OnUpdate", function()
+			local now = GetTime()
+			for i = #pendingTimers, 1, -1 do
+				local timer = pendingTimers[i]
+				if now >= timer.time then
+					tremove(pendingTimers, i)
+					timer.func()
+				end
+			end
+		end)
 	end
 end
 
@@ -146,7 +163,11 @@ local function ScanBags()
 				elseif meta.minLevel <= level then
 					local subType = meta.subType
 					if subType == BuffetLine.SUB_BOTH then
-						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
+						if BuffetLine.CONJURED[itemID] then
+							BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
+						else
+							BucketAdd(b.food, itemID, meta, bag, slot, link, count)
+						end
 					elseif subType == BuffetLine.SUB_FOOD then
 						if BuffetLine.CONJURED[itemID] then
 							BucketAdd(b.conjFood, itemID, meta, bag, slot, link, count)
@@ -229,7 +250,7 @@ local scanRetries = 0
 local function ScheduleRescan()
 	if scanRetries <= 12 then
 		scanRetries = scanRetries + 1
-		C_Timer.After(2, function()
+		After(2, function()
 			if not InCombatLockdown() then
 				local leftover = BuffetLine.Scan()
 				if leftover > 0 then
@@ -319,7 +340,7 @@ function BuffetLine.OnAddonLoaded()
 			return
 		end
 		tries = tries + 1
-		C_Timer.After(2, LocalizeLater)
+		After(2, LocalizeLater)
 	end
 	LocalizeLater()
 end
