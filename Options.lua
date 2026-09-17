@@ -5,8 +5,9 @@ local menu
 local function OpenOptionsPanel()
 	if InterfaceOptionsFrame then
 		InterfaceOptionsFrame:Show()
-		if InterfaceOptionsFrame_ShowCategory then
-			InterfaceOptionsFrame_ShowCategory(BuffetLine.OptionsPanel)
+		if InterfaceOptionsFrame_OpenToCategory then
+			InterfaceOptionsFrame_OpenToCategory(BuffetLine.OptionsPanel)
+			InterfaceOptionsFrame_OpenToCategory(BuffetLine.OptionsPanel)
 		end
 	end
 end
@@ -143,6 +144,7 @@ function BuffetLine.BuildOptions()
 		if BuffetLine.ApplyWidgetConfig then
 			BuffetLine.ApplyWidgetConfig()
 		end
+		BuffetLine.RefreshOptions()
 	end)
 
 	local note1 = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
