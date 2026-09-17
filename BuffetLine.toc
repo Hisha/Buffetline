@@ -1,0 +1,11 @@
+## Interface: 30300
+## Title: BuffetLine
+## Notes: Three-button consumable widget: Mage Food, Food and Drink, with vendor auto-restock.
+## Version: 1.0.0
+## Author: Kevin Smith
+## SavedVariables: BuffetLineDB
+
+Core.lua
+Restock.lua
+Widget.lua
+Options.lua
