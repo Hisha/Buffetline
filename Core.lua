@@ -1,10 +1,7 @@
-BuffetLine = BuffetLine or {}
-BuffetLine.PREFIX = "BuffetLine"
-BuffetLine.VERSION = GetAddOnMetadata and (GetAddOnMetadata("BuffetLine", "Version") or "1.0.0") or "1.0.0"
+local ADDON, BuffetLine = ...
 
-BuffetLine.SUB_FOOD = "Food"
-BuffetLine.SUB_DRINK = "Drink"
-BuffetLine.SUB_BOTH = "Food & Drink"
+BuffetLine.PREFIX = ADDON
+BuffetLine.VERSION = GetAddOnMetadata(ADDON, "Version") or "1.0.0"
 
 BuffetLine.CONJURED = {
 	[1113] = true,
@@ -43,80 +40,56 @@ BuffetLine.DEFAULTS = {
 	},
 }
 
-BuffetLine.itemMeta = {}
-BuffetLine.buckets = { mageFood = {}, food = {}, drink = {}, conjFood = {}, conjDrink = {} }
-
-local localizeSamples = {
-	{ id = 117, key = "SUB_FOOD" },
-	{ id = 159, key = "SUB_DRINK" },
-	{ id = 43523, key = "SUB_BOTH" },
-}
-local localizedSamples = {}
-local localized = false
+BuffetLine.SUB_FOOD = "Food"
+BuffetLine.SUB_DRINK = "Drink"
+BuffetLine.SUB_BOTH = "Food & Drink"
 
 local function TryLocalize()
-	if localized then
+	local foodName, _, _, _, _, _, foodSub = GetItemInfo(117)
+	local drinkName, _, _, _, _, _, drinkSub = GetItemInfo(159)
+	local bothName, _, _, _, _, _, bothSub = GetItemInfo(43523)
+	if foodName and drinkName and bothName then
+		BuffetLine.SUB_FOOD = foodSub or BuffetLine.SUB_FOOD
+		BuffetLine.SUB_DRINK = drinkSub or BuffetLine.SUB_DRINK
+		BuffetLine.SUB_BOTH = bothSub or BuffetLine.SUB_BOTH
 		return true
 	end
-	local ready = true
-	for _, sample in ipairs(localizeSamples) do
-		if not localizedSamples[sample.key] then
-			local subType = select(7, GetItemInfo(sample.id))
-			if subType and subType ~= "" then
-				BuffetLine[sample.key] = subType
-				localizedSamples[sample.key] = true
-			else
-				ready = false
-			end
-		end
-	end
-	if ready then
-		localized = true
-	end
-	return ready
+	return false
 end
+
+BuffetLine.buckets = {
+	mageFood = {},
+	food = {},
+	drink = {},
+	conjFood = {},
+	conjDrink = {},
+}
 
 local function ResetBuckets()
-	local b = BuffetLine.buckets
-	for key in pairs(b) do
-		wipe(b[key])
+	for k in pairs(BuffetLine.buckets) do
+		wipe(BuffetLine.buckets[k])
 	end
 end
 
-local function BucketAdd(bucket, itemID, meta, bag, slot, link, count)
-	count = count or 0
-	local entry = bucket[itemID]
-	if not entry then
-		bucket[itemID] = {
-			itemID = itemID,
-			meta = meta,
-			bag = bag,
-			slot = slot,
-			link = link or GetContainerItemLink(bag, slot),
-			total = count,
-		}
-	else
-		entry.total = entry.total + count
-	end
-end
+local cache = {}
 
 local function ItemMeta(itemID, link)
-	local meta = BuffetLine.itemMeta[itemID]
-	if not meta then
-		local name, _, _, itemLevel, minLevel, _, subType, stackCount, _, texture = GetItemInfo(link or itemID)
-		if not name or not subType or not texture then
-			return nil
-		end
-		meta = {
-			name = name,
-			itemLevel = itemLevel or 0,
-			minLevel = minLevel or 0,
-			subType = subType,
-			stackCount = stackCount or 1,
-			texture = texture,
-		}
-		BuffetLine.itemMeta[itemID] = meta
+	if cache[itemID] then
+		return cache[itemID]
 	end
+	local name, _, _, itemLevel, minLevel, _, subType, stackCount, _, texture = GetItemInfo(link or itemID)
+	if not name or not subType or not texture then
+		return nil
+	end
+	local meta = {
+		name = name,
+		subType = subType,
+		itemLevel = itemLevel,
+		minLevel = minLevel,
+		texture = texture,
+		stack = stackCount or 20,
+	}
+	cache[itemID] = meta
 	return meta
 end
 
@@ -124,9 +97,26 @@ function BuffetLine.GetMeta(itemID, link)
 	return ItemMeta(itemID, link)
 end
 
-local function BestOf(pool)
+local function BucketAdd(bucket, itemID, meta, bag, slot, link, count)
+	local entry = bucket[itemID]
+	if not entry then
+		entry = {
+			id = itemID,
+			itemID = itemID,
+			meta = meta,
+			total = 0,
+			bag = bag,
+			slot = slot,
+			link = link,
+		}
+		bucket[itemID] = entry
+	end
+	entry.total = entry.total + count
+end
+
+local function BestOf(bucket)
 	local best
-	for _, entry in pairs(pool) do
+	for _, entry in pairs(bucket) do
 		if not best
 			or entry.meta.itemLevel > best.meta.itemLevel
 			or (entry.meta.itemLevel == best.meta.itemLevel and entry.total > best.total)
@@ -178,26 +168,43 @@ local function ScanBags()
 end
 
 function BuffetLine.BestNormal(kind)
-	return BestOf(BuffetLine.buckets[kind])
+	local b = BuffetLine.buckets
+	if kind == "food" then
+		return BestOf(b.food) or BestOf(b.conjFood)
+	elseif kind == "drink" then
+		return BestOf(b.drink) or BestOf(b.conjDrink)
+	end
+	return nil
+end
+
+function BuffetLine.BestFood()
+	return BuffetLine.BestNormal("food")
+end
+
+function BuffetLine.BestDrink()
+	return BuffetLine.BestNormal("drink")
 end
 
 function BuffetLine.BestMageFood()
 	return BestOf(BuffetLine.buckets.mageFood)
 end
 
-function BuffetLine.BestFood()
-	return BestOf(BuffetLine.buckets.food) or BestOf(BuffetLine.buckets.conjFood)
-end
+BuffetLine.selection = {}
 
-function BuffetLine.BestDrink()
-	return BestOf(BuffetLine.buckets.drink) or BestOf(BuffetLine.buckets.conjDrink)
+function BuffetLine.UpdateButtons()
+	local sel = BuffetLine.selection
+	sel.mageFood = BuffetLine.BestMageFood()
+	sel.food = BuffetLine.BestFood()
+	sel.drink = BuffetLine.BestDrink()
+
+	if BuffetLine.ApplyWidget then
+		BuffetLine.ApplyWidget()
+	end
 end
 
 function BuffetLine.Scan()
 	local unresolved = ScanBags()
-	if BuffetLine.UpdateButtons then
-		BuffetLine.UpdateButtons()
-	end
+	BuffetLine.UpdateButtons()
 	return unresolved
 end
 

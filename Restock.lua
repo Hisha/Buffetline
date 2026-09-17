@@ -78,7 +78,7 @@ local function TryRestock(kind, target, vendorList)
 		return
 	end
 
-	local space = FreeSlotCount() * (stock.meta.stackCount or 1)
+	local space = FreeSlotCount() * (stock.meta.stack or 20)
 	if space <= 0 then
 		return
 	end
