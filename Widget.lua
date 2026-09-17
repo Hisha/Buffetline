@@ -15,14 +15,17 @@ local PLACEHOLDER = {
 
 local EMPTY_COLOR = { r = 0.3, g = 0.3, b = 0.3 }
 
+local isDragging = false
+
 local function SaveWidgetPosition()
-	if widget:IsMoving() then
-		local point, _, relPoint, x, y = widget:GetPoint()
-		local pos = { point = point, relPoint = relPoint, x = x, y = y }
-		BuffetLineDB.position = pos
-		widget:SetUserPlaced()
-		widget:StopMovingOrSizing()
+	if not isDragging then
+		return
 	end
+	isDragging = false
+	widget:StopMovingOrSizing()
+	local point, _, relPoint, x, y = widget:GetPoint()
+	local pos = { point = point, relPoint = relPoint, x = x, y = y }
+	BuffetLineDB.position = pos
 end
 
 local function RestorePosition()
@@ -37,6 +40,10 @@ end
 
 local function LayoutButtons()
 	local vertical = BuffetLineDB.orientation == "vertical"
+	widget:SetSize(
+		vertical and BUTTON_SIZE or (BUTTON_SIZE * 3 + GAP_BETWEEN * 2),
+		vertical and (BUTTON_SIZE * 3 + GAP_BETWEEN * 2) or BUTTON_SIZE
+	)
 	for i, button in ipairs(buttons) do
 		button:ClearAllPoints()
 		if i == 1 then
@@ -67,6 +74,7 @@ function BuffetLine.ApplyWidgetConfig()
 		button:EnableMouse(not locked)
 	end
 	LayoutButtons()
+	RestorePosition()
 	BuffetLine.SaveWidget = SaveWidgetPosition
 end
 
@@ -175,10 +183,10 @@ local function MakeButton(index)
 		if InCombatLockdown() then
 			return
 		end
-		self:StartMoving()
+		widget:StartMoving()
+		isDragging = true
 	end)
 	button:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
 		SaveWidgetPosition()
 		RestorePosition()
 	end)

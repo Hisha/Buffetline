@@ -81,7 +81,13 @@ function BuffetLine.SetLocked(value)
 end
 
 function BuffetLine.SetOrientation(value)
-	BuffetLineDB.orientation = (value == "vertical") and "vertical" or "horizontal"
+	if value == "vertical" then
+		BuffetLineDB.orientation = "vertical"
+	elseif value == "horizontal" then
+		BuffetLineDB.orientation = "horizontal"
+	else
+		BuffetLineDB.orientation = value and "vertical" or "horizontal"
+	end
 	if BuffetLine.ApplyWidgetConfig then
 		BuffetLine.ApplyWidgetConfig()
 	end
