@@ -464,11 +464,6 @@ function BuffetLine.OnAddonLoaded()
 	-- Food-authoritative TOPLEFT representation, and plausible coordinates that
 	-- could actually place the widget on screen.
 	local rawPos = type(db.position) == "table" and db.position or nil
-	BuffetLine.Print(string.format(
-		"Position LOAD raw format=%s x=%s y=%s",
-		tostring(rawPos and rawPos.format),
-		tostring(rawPos and rawPos.x),
-		tostring(rawPos and rawPos.y)))
 	if not rawPos
 		or rawPos.format ~= BuffetLine.POSITION_FORMAT
 		or rawPos.point ~= "TOPLEFT"
@@ -478,22 +473,8 @@ function BuffetLine.OnAddonLoaded()
 		or rawPos.y ~= rawPos.y
 		or not BuffetLine.IsValidPosition(rawPos.x, rawPos.y)
 	then
-		BuffetLine.Print(string.format(
-			"Position VALID result=rejected x=%s y=%s",
-			tostring(rawPos and rawPos.x),
-			tostring(rawPos and rawPos.y)))
 		db.position = nil
-	else
-		BuffetLine.Print(string.format(
-			"Position VALID result=accepted x=%s y=%s",
-			tostring(rawPos.x), tostring(rawPos.y)))
 	end
-	BuffetLine.Print(string.format(
-		"AddonLoaded saved food=%s drink=%s enabled=%s locked=%s orientation=%s",
-		db.restock.food, db.restock.drink,
-		db.restock.enabled and "true" or "false",
-		db.locked and "true" or "false",
-		db.orientation))
 	if BuffetLine.BuildWidget then
 		BuffetLine.BuildWidget()
 	end

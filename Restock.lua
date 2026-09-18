@@ -3,14 +3,12 @@ local _, BuffetLine = ...
 local floor = math.floor
 local ceil = math.ceil
 
--- Diagnostic build: do not call BuyMerchantItem. Print the exact plan instead.
-local DRY_RUN = true
--- HARD DEFENSIVE CAP for the eventual implementation: one merchant operation
--- may never request more than this many purchase units, no matter how corrupt
--- the input state is. Per server semantics (item_template.BuyCount per unit,
--- 1 for normal food/drink) this bounds the granted item count to the same
--- value. A configured target is honored in the sense that the cap is high
--- enough for any normal target; absurd values are impossible by construction.
+-- HARD DEFENSIVE CAP: one merchant operation may never request more than this
+-- many purchase units, no matter how corrupt the input state is. Per server
+-- semantics (item_template.BuyCount per unit, 1 for normal food/drink) this
+-- bounds the granted item count to the same value. A configured target is
+-- honored in the sense that the cap is high enough for any normal target;
+-- absurd values are impossible by construction.
 local MAX_ITEMS_PER_BUY = 200
 
 local function ExtractID(link)
@@ -152,12 +150,7 @@ local function TryRestock(kind, target, vendorList, level)
 		planned = MAX_ITEMS_PER_BUY
 	end
 
-	BuffetLine.Print(string.format(
-		"%s: target=%d have=%d deficit=%d vendor=%s index=%d price=%d quantity=%d available=%d plannedBuyArg=%d",
-		kind, target, have, deficit,
-		tostring(name or "?"), stock.index, price or 0, bundle or 0, numAvailable or 0, planned))
-
-	if DRY_RUN or planned < 1 then
+	if planned < 1 then
 		return
 	end
 
@@ -169,7 +162,6 @@ function BuffetLine.DoRestock()
 	local db = BuffetLineDB
 	local restock = db and db.restock
 	if not (restock and restock.enabled) then
-		BuffetLine.Print("Auto-restock disabled - no purchase planned.")
 		return
 	end
 	if not (MerchantFrame and MerchantFrame:IsShown()) then

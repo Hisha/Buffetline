@@ -85,16 +85,6 @@ local function SaveWidgetPosition()
 		y = y,
 	}
 	BuffetLineDB.position = pos
-	BuffetLine.Print(string.format(
-		"Position SAVE format=%s x=%s y=%s",
-		tostring(pos.format), tostring(pos.x), tostring(pos.y)))
-	BuffetLine.Print(string.format(
-		"Position STORED format=%s point=%s relPoint=%s x=%s y=%s",
-		tostring(BuffetLineDB.position.format),
-		tostring(BuffetLineDB.position.point),
-		tostring(BuffetLineDB.position.relPoint),
-		tostring(BuffetLineDB.position.x),
-		tostring(BuffetLineDB.position.y)))
 end
 
 -- Anchor the Food button directly to UIParent. This is the ONLY code path that
@@ -112,17 +102,11 @@ function BuffetLine.ApplyWidgetPosition()
 		and type(pos.y) == "number"
 	then
 		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x, pos.y)
-		BuffetLine.Print(string.format(
-			"Position APPLY x=%s y=%s",
-			tostring(pos.x), tostring(pos.y)))
 	else
 		local width, height = GetScreenWidth(), GetScreenHeight()
 		local x = width / 2
 		local y = -(height / 2)
 		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x, y)
-		BuffetLine.Print(string.format(
-			"Position APPLY x=%s y=%s",
-			tostring(x), tostring(y)))
 	end
 end
 

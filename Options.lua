@@ -51,8 +51,7 @@ local function CommitNumberBox(box, getter, setter)
 		return
 	end
 	box.dirty = false
-	local raw = box:GetText()
-	local value = BuffetLine.SanitizeTarget(raw)
+	local value = BuffetLine.SanitizeTarget(box:GetText())
 	if not value then
 		box:SetText(DisplayNumber(getter()))
 		BuffetLine.Print(string.format(
@@ -61,21 +60,20 @@ local function CommitNumberBox(box, getter, setter)
 		return
 	end
 	setter(value)
-	BuffetLine.Print(string.format(
-		"Commit %s raw=%s stored=%s",
-		box.commitLabel, raw, tostring(BuffetLineDB.restock[box.kind])))
 end
 
 local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind, getter, setter)
 	-- Mirror the known-good Poisonkeeper target EditBoxes
 	-- (/home/smithkt/git/Poisonkeeper/Options.lua) exactly: a plain
 	-- InputBoxTemplate at Poisonkeeper's proven 44x22 size, SetAutoFocus(false),
-	-- no numeric mode, no max-letters, and the caption FontString created as a
-	-- sibling on the panel rather than as a child region of the EditBox. The
-	-- 3.3.5a EditBox stored the display string (GetText() kept returning "40")
-	-- but never painted it under the old configuration, which added a FontString
-	-- child onto the box and enabled the non-default input-mode flags that
-	-- Poisonkeeper deliberately avoids.
+	-- no numeric mode, no max-letters, the caption FontString created as a
+	-- sibling on the panel rather than as a child region of the EditBox, and NO
+	-- SetText at creation time. The 3.3.5a EditBox stores what SetText gives it
+	-- (GetText() returns the value) but only repaints its text fontstring on a
+	-- diff: a SetText issued while the box is hidden never paints, and a later
+	-- identical SetText is skipped as a no-op, leaving text permanently blank.
+	-- Text is therefore written only while the panel is visible, in
+	-- RefreshOptions (see the IsShown guard below), exactly like Poisonkeeper.
 	local box = CreateFrame("EditBox", frameName, parent, "InputBoxTemplate")
 	box.kind = kind
 	box.commitLabel = commitLabel
@@ -87,7 +85,6 @@ local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind,
 	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
 	label:SetText(labelText)
 	box:SetPoint("LEFT", parent, "LEFT", 230, y)
-	box:SetText(DisplayNumber(getter()))
 	box:SetScript("OnTextChanged", function(self, userInput)
 		if userInput and not refreshing then
 			self.dirty = true
@@ -128,8 +125,16 @@ function BuffetLine.RefreshOptions()
 	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
 	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
 	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
-	widgets.food:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food))
-	widgets.drink:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink))
+	-- EditBox text is written only while the options panel is actually on
+	-- screen. 3.3.5's EditBox repaints its text fontstring on a diff: a SetText
+	-- issued while the box is hidden does not paint, and a later identical
+	-- SetText is skipped as a no-op, leaving the box visually blank even though
+	-- GetText() holds the value. Keeping the FIRST write visible (panel OnShow
+	-- always repaints) avoids that state entirely.
+	if panel and panel:IsShown() then
+		widgets.food:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food))
+		widgets.drink:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink))
+	end
 	refreshing = false
 end
 
@@ -250,17 +255,9 @@ function BuffetLine.BuildOptions()
 			return
 		end
 		-- Match the known-good Poisonkeeper pattern (panel.refresh AND OnShow
-		-- both repaint): always SetText while the panel is actually visible, so
-		-- values that were written while hidden (BuildOptions at ADDON_LOADED)
-		-- are re-rendered on screen instead of staying invisible until focus.
+		-- both repaint): the EditBoxes are always repainted while the panel is
+		-- actually visible, so the first SetText lands on screen.
 		BuffetLine.RefreshOptions()
-		BuffetLine.Print(string.format(
-			"Options shown food=%s drink=%s dbFood=%s dbDrink=%s enabled=%s locked=%s orientation=%s",
-			widgets.food:GetText(), widgets.drink:GetText(),
-			BuffetLineDB.restock.food, BuffetLineDB.restock.drink,
-			BuffetLineDB.restock.enabled and "true" or "false",
-			BuffetLineDB.locked and "true" or "false",
-			BuffetLineDB.orientation))
 	end)
 end
 
