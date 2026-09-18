@@ -41,33 +41,22 @@ BuffetLine.SUB_FOOD = "Food"
 BuffetLine.SUB_DRINK = "Drink"
 BuffetLine.SUB_BOTH = "Food & Drink"
 
-BuffetLine.FOOD_SPELL = nil
-BuffetLine.DRINK_SPELL = nil
-
-local function TryLocalize()
-	local foodName = GetItemInfo(117)
-	local drinkName = GetItemInfo(159)
-	if foodName and drinkName then
-		local foodSpell = GetItemSpell(foodName)
-		local drinkSpell = GetItemSpell(drinkName)
-		if foodSpell and drinkSpell and foodSpell ~= drinkSpell then
-			BuffetLine.FOOD_SPELL = foodSpell
-			BuffetLine.DRINK_SPELL = drinkSpell
-			return true
-		end
+BuffetLine.FOOD_USE_SPELL_ID = 433
+BuffetLine.DRINK_USE_SPELL_ID = 430
+-- Food and drink consumables share the category-localized "Food & Drink" item
+-- subclass, so the subtype cannot separate them (nor can locating reference
+-- items, whose data may never be cached). Instead use the bag item's own
+-- on-use spell, returned by GetItemSpell: every mana-restoring drink casts
+-- spell 430 "Drink", every health-restoring food casts spell 433 "Food".
+-- Spell IDs are locale-independent and available for any item in the bags.
+local function UseSpellClass(item)
+	local _, spellID = GetItemSpell(item)
+	if spellID == BuffetLine.DRINK_USE_SPELL_ID then
+		return "drink"
+	elseif spellID == BuffetLine.FOOD_USE_SPELL_ID then
+		return "food"
 	end
-	return false
-end
-
-local function IsDrink(item)
-	local drinkSpell = BuffetLine.DRINK_SPELL
-	if not (BuffetLine.FOOD_SPELL and drinkSpell) then
-		return false
-	end
-	if BuffetLine.FOOD_SPELL == drinkSpell then
-		return false
-	end
-	return GetItemSpell(item) == drinkSpell
+	return nil
 end
 
 BuffetLine.buckets = {
@@ -185,10 +174,13 @@ local function ScanBags()
 				elseif meta.minLevel <= level then
 					if BuffetLine.CONJURED[itemID] then
 						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
-					elseif IsDrink(meta.name) then
-						BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
 					else
-						BucketAdd(b.food, itemID, meta, bag, slot, link, count)
+						local kind = UseSpellClass(itemID)
+						if kind == "drink" then
+							BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
+						elseif kind == "food" then
+							BucketAdd(b.food, itemID, meta, bag, slot, link, count)
+						end
 					end
 				end
 			end
@@ -233,9 +225,6 @@ function BuffetLine.UpdateButtons()
 end
 
 function BuffetLine.Scan()
-	if not (BuffetLine.FOOD_SPELL and BuffetLine.DRINK_SPELL) then
-		TryLocalize()
-	end
 	local unresolved = ScanBags()
 	BuffetLine.UpdateButtons()
 	return unresolved
@@ -345,14 +334,5 @@ function BuffetLine.OnAddonLoaded()
 		BuffetLine.BuildOptions()
 		BuffetLine.RefreshOptions()
 	end
-	local tries = 0
-	local function LocalizeLater()
-		if TryLocalize() or tries >= 15 then
-			BuffetLine.Scan()
-			return
-		end
-		tries = tries + 1
-		After(2, LocalizeLater)
-	end
-	LocalizeLater()
+	BuffetLine.Scan()
 end
