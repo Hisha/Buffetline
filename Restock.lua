@@ -3,6 +3,16 @@ local _, BuffetLine = ...
 local floor = math.floor
 local ceil = math.ceil
 
+-- Diagnostic build: do not call BuyMerchantItem. Print the exact plan instead.
+local DRY_RUN = true
+-- HARD DEFENSIVE CAP for the eventual implementation: one merchant operation
+-- may never request more than this many purchase units, no matter how corrupt
+-- the input state is. Per server semantics (item_template.BuyCount per unit,
+-- 1 for normal food/drink) this bounds the granted item count to the same
+-- value. A configured target is honored in the sense that the cap is high
+-- enough for any normal target; absurd values are impossible by construction.
+local MAX_ITEMS_PER_BUY = 200
+
 local function ExtractID(link)
 	if not link then
 		return nil
@@ -99,7 +109,7 @@ end
 
 local function TryRestock(kind, target, vendorList, level)
 	target = SanitizeTarget(target)
-	if target <= 0 or #vendorList == 0 then
+	if #vendorList == 0 then
 		return
 	end
 
@@ -113,63 +123,63 @@ local function TryRestock(kind, target, vendorList, level)
 	-- stocks it; otherwise use this merchant's best usable item of the role.
 	local stock = (bagBest and EntryByID(vendorList, bagBest.itemID)) or vendorBest
 
-	local deficit = target - have
-	if deficit <= 0 then
-		return
-	end
-
-	local space = FreeSlotCount() * (stock.meta.stack or 1)
-	if space <= 0 then
-		return
-	end
-	deficit = math.min(deficit, space)
-
 	-- stock 3.3.5a merchant API returning
 	-- name, texture, price, quantity, numAvailable, isUsable, extendedCost:
-	-- quantity is the items granted per purchase, and extendedCost is non-nil
-	-- for items priced in honor/arena/items instead of gold.
+	-- quantity is that item's purchase unit size (the item_template.BuyCount
+	-- fed to the vendor icon; 1 for normal food/drink). VERIFIED against the
+	-- server (AzerothCore Player::BuyItemFromVendorSlot -> _StoreOrEquipNewItem):
+	-- BuyMerchantItem(index, N) charges BuyPrice*N and grants BuyCount*N items.
+	-- The argument is therefore a count of units, not a batch multiplier, and
+	-- has no hidden relationship with the returned quantity except the grant.
 	local name, _, price, bundle, numAvailable, _, extendedCost = GetMerchantItemInfo(stock.index)
-	if not name then
-		return
-	end
-	if extendedCost then
-		return
-	end
-	if numAvailable == 0 then
-		return
-	end
 
-	bundle = bundle or 1
-	if bundle < 1 then
-		bundle = 1
-	end
-
-	-- Minimum number of merchant purchases (each grants `bundle` items) needed
-	-- to reach or exceed the target.
-	local purchases = ceil(deficit / bundle)
-	if purchases < 1 then
-		return
-	end
-
-	if price and price > 0 then
-		local money = GetMoney() or 0
-		local affordable = floor(money / price)
-		if purchases > affordable then
-			purchases = affordable
+	local deficit = target - have
+	local planned = 0
+	if target > 0 and name and not extendedCost and numAvailable ~= 0 and deficit > 0 then
+		local space = FreeSlotCount() * (stock.meta.stack or 1)
+		if space > 0 then
+			deficit = math.min(deficit, space)
+			bundle = bundle or 1
+			if bundle < 1 then
+				bundle = 1
+			end
+			-- Minimum number of units to grant to reach or exceed the target.
+			planned = ceil(deficit / bundle)
+			if price and price > 0 then
+				local affordable = floor((GetMoney() or 0) / price)
+				if planned > affordable then
+					planned = affordable
+				end
+			end
+			if planned < 1 then
+				planned = 0
+			end
 		end
 	end
-	if purchases < 1 then
+	-- Hard defensive ceiling applied at the last possible gate, so corrupt
+	-- state can never result in an absurd quantity in ONE merchant operation.
+	if planned > MAX_ITEMS_PER_BUY then
+		planned = MAX_ITEMS_PER_BUY
+	end
+
+	BuffetLine.Print(string.format(
+		"%s: target=%d have=%d deficit=%d vendor=%s index=%d price=%d quantity=%d available=%d plannedBuyArg=%d",
+		kind, target, have, deficit,
+		tostring(name or "?"), stock.index, price or 0, bundle or 0, numAvailable or 0, planned))
+
+	if DRY_RUN or planned < 1 then
 		return
 	end
 
-	BuyMerchantItem(stock.index, purchases)
-	BuffetLine.Print("Bought x" .. (purchases * bundle) .. " " .. name .. ".")
+	BuyMerchantItem(stock.index, planned)
+	BuffetLine.Print("Bought x" .. (planned * bundle) .. " " .. name .. ".")
 end
 
 function BuffetLine.DoRestock()
 	local db = BuffetLineDB
 	local restock = db and db.restock
 	if not (restock and restock.enabled) then
+		BuffetLine.Print("Auto-restock disabled - no purchase planned.")
 		return
 	end
 	if not (MerchantFrame and MerchantFrame:IsShown()) then

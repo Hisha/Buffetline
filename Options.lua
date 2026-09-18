@@ -209,6 +209,19 @@ function BuffetLine.BuildOptions()
 	local note3 = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	note3:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -240)
 	note3:SetText("Also configurable with /buffetline commands.")
+
+	panel:SetScript("OnShow", function()
+		if not widgets then
+			return
+		end
+		BuffetLine.Print(string.format(
+			"Options shown food=%s drink=%s dbFood=%s dbDrink=%s enabled=%s locked=%s orientation=%s",
+			widgets.food:GetText(), widgets.drink:GetText(),
+			BuffetLineDB.restock.food, BuffetLineDB.restock.drink,
+			BuffetLineDB.restock.enabled and "true" or "false",
+			BuffetLineDB.locked and "true" or "false",
+			BuffetLineDB.orientation))
+	end)
 end
 
 SLASH_BUFFETLINE1 = "/buffetline"

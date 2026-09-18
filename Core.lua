@@ -442,6 +442,12 @@ function BuffetLine.OnAddonLoaded()
 	then
 		db.position = nil
 	end
+	BuffetLine.Print(string.format(
+		"AddonLoaded saved food=%s drink=%s enabled=%s locked=%s orientation=%s",
+		db.restock.food, db.restock.drink,
+		db.restock.enabled and "true" or "false",
+		db.locked and "true" or "false",
+		db.orientation))
 	if BuffetLine.BuildWidget then
 		BuffetLine.BuildWidget()
 	end
