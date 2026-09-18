@@ -29,11 +29,13 @@ BuffetLine.CONJURED = {
 -- Slice 5: the conjured set splits by role. Classic conjured mage food restores
 -- health only and belongs to the Food role; classic conjured mage water restores
 -- mana only and belongs to the Drink role. Both are preferred over purchased
--- normal items once the player level makes them usable. The combined
--- health+mana Mage refreshments (34062, 43518, 43523) remain conjured but stay
--- out of these two role tables so Slice 6 can give them a dedicated button.
--- Buffet's own conjfood/conjwater lists put 43518/43523/34062 in both, which is
--- what separates them from the role-specific items below.
+-- normal items once the player level makes them usable.
+--
+-- Slice 6: the combined health+mana Mage refreshments (34062, 43518, 43523) get
+-- their own dedicated button. They remain in CONJURED so restock never buys
+-- them, but live in CONJ_REFRESH and route to the mageFood bucket, never to
+-- Food or Drink.  Buffet's conjfood/conjwater lists put all three in both,
+-- which is what separates them from the role-specific items below.
 BuffetLine.CONJ_FOOD = {
 	[1113] = true,
 	[1114] = true,
@@ -55,6 +57,15 @@ BuffetLine.CONJ_WATER = {
 	[8079] = true,
 	[30703] = true,
 	[22018] = true,
+}
+
+-- Combined health+mana Mage refreshments (Slice 6 dedicated button). Values are
+-- the required levels from the 3.3.5 item database: 34062 Conjured Mana Biscuit
+-- (lv65), 43518 Conjured Mana Pie (lv74), 43523 Conjured Mana Strudel (lv80).
+BuffetLine.CONJ_REFRESH = {
+	[34062] = 65,
+	[43518] = 74,
+	[43523] = 80,
 }
 
 BuffetLine.DEFAULTS = {
@@ -229,6 +240,8 @@ local function ScanBags()
 						BucketAdd(b.conjFood, itemID, meta, bag, slot, link, count)
 					elseif BuffetLine.CONJ_WATER[itemID] then
 						BucketAdd(b.conjDrink, itemID, meta, bag, slot, link, count)
+					elseif BuffetLine.CONJ_REFRESH[itemID] then
+						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
 					elseif BuffetLine.CONJURED[itemID] then
 						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
 					else
@@ -267,6 +280,18 @@ end
 
 function BuffetLine.BestMageFood()
 	return BestOf(BuffetLine.buckets.mageFood)
+end
+
+-- The packaged Mage refreshments require at least this level to be usable. The
+-- dedicated button hides below it while the widget is locked.
+function BuffetLine.MageRefreshmentMinLevel()
+	local minLevel = 0
+	for _, required in pairs(BuffetLine.CONJ_REFRESH) do
+		if minLevel == 0 or required < minLevel then
+			minLevel = required
+		end
+	end
+	return minLevel
 end
 
 BuffetLine.selection = {}

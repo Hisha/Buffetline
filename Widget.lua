@@ -17,42 +17,84 @@ local EMPTY_COLOR = { r = 0.3, g = 0.3, b = 0.3 }
 
 local isDragging = false
 
+-- The Mage Refreshment button is not a permanent citizen: while the widget is
+-- unlocked it is always shown as a positioning placeholder; while locked it is
+-- shown only once the player can actually use refreshments. Food is the layout
+-- anchor: the saved position is always the Food button's screen position and
+-- Food stays pixel-fixed across visibility changes, orientation changes and
+-- reloads. Mage and Drink are positioned relative to Food.
+local foodOffset = { x = 0, y = 0 }
+local lastMageVisible = true
+
+local function IsMageVisible()
+	if not BuffetLineDB.locked then
+		return true
+	end
+	return (UnitLevel("player") or 0) >= BuffetLine.MageRefreshmentMinLevel()
+end
+
 local function SaveWidgetPosition()
 	if not isDragging then
 		return
 	end
 	isDragging = false
 	widget:StopMovingOrSizing()
-	local point, _, relPoint, x, y = widget:GetPoint()
-	local pos = { point = point, relPoint = relPoint, x = x, y = y }
+	local _, _, _, x, y = widget:GetPoint()
+	local pos = {
+		point = "TOPLEFT",
+		relPoint = "TOPLEFT",
+		x = x + foodOffset.x,
+		y = y + foodOffset.y,
+	}
 	BuffetLineDB.position = pos
 end
 
 local function RestorePosition()
 	local pos = BuffetLineDB.position
 	widget:ClearAllPoints()
-	if not (pos and pos.point) then
-		widget:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-		return
+	if pos and pos.point and pos.x ~= nil then
+		widget:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x - foodOffset.x, pos.y - foodOffset.y)
+	else
+		local width, height = GetScreenWidth(), GetScreenHeight()
+		widget:SetPoint("TOPLEFT", UIParent, "TOPLEFT", width / 2 - foodOffset.x, height / 2 - foodOffset.y)
 	end
-	widget:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
 end
 
-local function LayoutButtons()
+-- Buttons are laid out with Food always anchored to the widget's TOPLEFT at a
+-- fixed foodOffset so the widget anchor plus foodOffset reproduces Food's saved
+-- screen position. The widget rect always covers the visible buttons.
+local function LayoutButtons(mageVisible)
 	local vertical = BuffetLineDB.orientation == "vertical"
-	widget:SetSize(
-		vertical and BUTTON_SIZE or (BUTTON_SIZE * 3 + GAP_BETWEEN * 2),
-		vertical and (BUTTON_SIZE * 3 + GAP_BETWEEN * 2) or BUTTON_SIZE
-	)
-	for i, button in ipairs(buttons) do
-		button:ClearAllPoints()
-		if i == 1 then
-			button:SetPoint("TOPLEFT", widget, "TOPLEFT", 0, 0)
-		elseif vertical then
-			button:SetPoint("TOP", buttons[i - 1], "BOTTOM", 0, -GAP_BETWEEN)
-		else
-			button:SetPoint("LEFT", buttons[i - 1], "RIGHT", GAP_BETWEEN, 0)
-		end
+	local b, g = BUTTON_SIZE, GAP_BETWEEN
+	if mageVisible then
+		widget:SetSize(
+			vertical and b or (b * 3 + g * 2),
+			vertical and (b * 3 + g * 2) or b
+		)
+		foodOffset.x = vertical and 0 or (b + g)
+		foodOffset.y = vertical and (b + g) or 0
+	else
+		widget:SetSize(
+			vertical and b or (b * 2 + g),
+			vertical and (b * 2 + g) or b
+		)
+		foodOffset.x = 0
+		foodOffset.y = 0
+	end
+	buttons[1]:ClearAllPoints()
+	if mageVisible then
+		buttons[1]:SetPoint("TOPLEFT", widget, "TOPLEFT", 0, 0)
+		buttons[1]:Show()
+	else
+		buttons[1]:Hide()
+	end
+	buttons[2]:ClearAllPoints()
+	buttons[2]:SetPoint("TOPLEFT", widget, "TOPLEFT", foodOffset.x, foodOffset.y)
+	buttons[3]:ClearAllPoints()
+	if vertical then
+		buttons[3]:SetPoint("TOPLEFT", widget, "TOPLEFT", 0, mageVisible and 2 * (b + g) or (b + g))
+	else
+		buttons[3]:SetPoint("TOPLEFT", widget, "TOPLEFT", mageVisible and 2 * (b + g) or (b + g), 0)
 	end
 end
 
@@ -60,7 +102,9 @@ local function ApplyLayout()
 	if not widget then
 		return
 	end
-	LayoutButtons()
+	local mageVisible = IsMageVisible()
+	lastMageVisible = mageVisible
+	LayoutButtons(mageVisible)
 	RestorePosition()
 end
 
@@ -86,6 +130,7 @@ function BuffetLine.ApplyWidgetConfig()
 		button:EnableMouse(true)
 	end
 	BuffetLine.SaveWidget = SaveWidgetPosition
+	BuffetLine.ApplyWidget()
 end
 
 local function ApplyButton(button, stock, placeholder)
@@ -113,7 +158,7 @@ local function ApplyButton(button, stock, placeholder)
 			GameTooltip:SetHyperlink(stock.link)
 			local kind = self.kind
 			if kind == "mageFood" then
-				GameTooltip:AddLine("Conjured Mage Food", 1, 0.8, 0.2)
+				GameTooltip:AddLine("Mage Refreshment (health and mana)", 1, 0.8, 0.2)
 			elseif kind == "food" then
 				GameTooltip:AddLine("Food", 1, 0.8, 0.2)
 			elseif kind == "drink" then
@@ -143,8 +188,8 @@ local function ApplyButton(button, stock, placeholder)
 		button:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			if self.kind == "mageFood" then
-				GameTooltip:AddLine("No conjured mage food available", 1, 1, 1)
-				GameTooltip:AddLine("Conjure food or get some from a mage.", 0.8, 0.8, 0.8)
+				GameTooltip:AddLine("No Mage Refreshment available", 1, 1, 1)
+				GameTooltip:AddLine("Conjure refreshments or get some from a mage.", 0.8, 0.8, 0.8)
 			elseif self.kind == "food" then
 				GameTooltip:AddLine("No food available", 1, 1, 1)
 			elseif self.kind == "drink" then
@@ -163,7 +208,17 @@ function BuffetLine.ApplyWidget()
 		return
 	end
 	local sel = BuffetLine.selection
-	ApplyButton(buttons[1], sel.mageFood, PLACEHOLDER.mageFood)
+	local mageVisible = IsMageVisible()
+	if mageVisible ~= lastMageVisible then
+		ApplyLayout()
+	end
+	if mageVisible then
+		if BuffetLineDB.locked then
+			ApplyButton(buttons[1], sel.mageFood, PLACEHOLDER.mageFood)
+		else
+			ApplyButton(buttons[1], nil, PLACEHOLDER.mageFood)
+		end
+	end
 	ApplyButton(buttons[2], sel.food, PLACEHOLDER.food)
 	ApplyButton(buttons[3], sel.drink, PLACEHOLDER.drink)
 end
@@ -240,4 +295,13 @@ function BuffetLine.BuildWidget()
 	ApplyLayout()
 	BuffetLine.ApplyWidgetConfig()
 	BuffetLine.ApplyWidget()
+end
+
+-- Read-only handles for the test harness.
+function BuffetLine.GetWidget()
+	return widget
+end
+
+function BuffetLine.GetButtons()
+	return buttons
 end
