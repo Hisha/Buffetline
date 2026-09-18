@@ -17,16 +17,17 @@ local EMPTY_COLOR = { r = 0.3, g = 0.3, b = 0.3 }
 
 local isDragging = false
 
--- Slice 6 layout: the Food button is the authoritative positional object.
--- Food is pinned to the widget's TOPLEFT corner (0,0) once at build time and is
--- never re-anchored by layout code, so Food's absolute screen position always
--- equals the widget's TOPLEFT anchor point relative to UIParent.
+-- Slice 6 layout: the Food button is the genuinely authoritative positional
+-- object. Food is anchored DIRECTLY to UIParent's TOPLEFT (never to the widget
+-- container) and is only (re)anchored by ApplyWidgetPosition(), which runs on
+-- the initial build and on explicit position reset. Layout, orientation, and
+-- Mage-visibility changes never re-anchor Food, so Food's screen position is
+-- immune to every non-drag UI change.
 --
--- The saved position stores exactly that anchor: Food's top-left relative to
--- UIParent. Saving reads the widget's TOPLEFT anchor (identical to Food's
--- position) and restoring re-issues SetPoint("TOPLEFT", UIParent, "TOPLEFT").
--- Nothing in layout or persistence derives Food's position from container
--- width/height/center or from any per-layout offset.
+-- The saved position stores exactly Food's UIParent-relative anchor: saving
+-- reads buttons[2]:GetPoint() (TOPLEFT -> UIParent TOPLEFT) and restoring
+-- re-issues that same SetPoint on buttons[2]. Nothing derives Food's position
+-- from container width/height/center or from any per-layout offset.
 --
 -- Mage and Drink are anchored relative to Food, never to the container:
 --   Horizontal:  Mage <- Food -> Drink
@@ -34,6 +35,14 @@ local isDragging = false
 -- When Mage is hidden only buttons[1] changes (Hide + no anchors); Food and
 -- Drink stay exactly where they are. Restoring after /reload does not depend on
 -- Mage visibility, lock state, orientation, or character level.
+--
+-- The widget frame itself is a non-positional parent: mouse disabled and never
+-- moved. Dragging moves the Food button (buttons[2]).
+--
+-- Note: WoW SetPoint offsets use math-style Y (positive y = UP), so for a
+-- TOPLEFT -> UIParent TOPLEFT anchor the screen-centered default is
+-- (GetScreenWidth()/2, -GetScreenHeight()/2) and the harvested drag offset,
+-- stored as-is and re-issued as-is, round-trips exactly.
 local lastMageVisible = true
 
 local function IsMageVisible()
@@ -48,8 +57,11 @@ local function SaveWidgetPosition()
 		return
 	end
 	isDragging = false
-	widget:StopMovingOrSizing()
-	local _, _, _, x, y = widget:GetPoint()
+	local food = buttons[2]
+	if food then
+		food:StopMovingOrSizing()
+	end
+	local _, _, _, x, y = food:GetPoint()
 	local pos = {
 		point = "TOPLEFT",
 		relPoint = "TOPLEFT",
@@ -59,19 +71,27 @@ local function SaveWidgetPosition()
 	BuffetLineDB.position = pos
 end
 
-local function RestorePosition()
+-- Anchor the Food button directly to UIParent. This is the ONLY code path that
+-- positions Food: called on the initial build and on explicit position reset,
+-- never as part of lock/visibility/orientation layout changes.
+function BuffetLine.ApplyWidgetPosition()
+	local food = buttons[2]
+	if not food then
+		return
+	end
 	local pos = BuffetLineDB.position
-	widget:ClearAllPoints()
+	food:ClearAllPoints()
 	if pos and pos.point and pos.x ~= nil then
-		widget:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x, pos.y)
+		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x, pos.y)
 	else
 		local width, height = GetScreenWidth(), GetScreenHeight()
-		widget:SetPoint("TOPLEFT", UIParent, "TOPLEFT", width / 2, height / 2)
+		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", width / 2, -(height / 2))
 	end
 end
 
--- Re-layout only the buttons that move around Food. Food's own anchor is set in
--- BuildWidget and must never be cleared or re-derived here.
+-- Re-layout only the buttons that move around Food. Food's own anchor is set
+-- exclusively by ApplyWidgetPosition and must never be cleared or re-derived
+-- here; in particular this path performs NO re-anchoring of Food to UIParent.
 local function LayoutButtons(mageVisible)
 	local vertical = BuffetLineDB.orientation == "vertical"
 	buttons[1]:ClearAllPoints()
@@ -100,7 +120,6 @@ local function ApplyLayout()
 	local mageVisible = IsMageVisible()
 	lastMageVisible = mageVisible
 	LayoutButtons(mageVisible)
-	RestorePosition()
 end
 
 function BuffetLine.ApplyWidgetLayout()
@@ -112,8 +131,9 @@ function BuffetLine.ApplyWidgetConfig()
 		return
 	end
 	local locked = BuffetLineDB.locked
-	widget:SetMovable(not locked)
-	widget:EnableMouse(true)
+	if buttons[2] then
+		buttons[2]:SetMovable(not locked)
+	end
 	if lockIcon then
 		if locked then
 			lockIcon:Show()
@@ -251,7 +271,7 @@ local function MakeButton(index)
 		if InCombatLockdown() then
 			return
 		end
-		widget:StartMoving()
+		buttons[2]:StartMoving()
 		isDragging = true
 	end)
 	button:SetScript("OnDragStop", function(self)
@@ -267,9 +287,7 @@ function BuffetLine.BuildWidget()
 	end
 	widget = CreateFrame("Frame", "BuffetLineWidgetFrame", UIParent)
 	widget:SetSize(BUTTON_SIZE * 3 + GAP_BETWEEN * 2, BUTTON_SIZE * 3 + GAP_BETWEEN * 2)
-	widget:EnableMouse(true)
-	widget:SetMovable(true)
-	widget:SetClampedToScreen(true)
+	widget:EnableMouse(false)
 	widget:SetFrameStrata("MEDIUM")
 	widget:SetFrameLevel(2)
 
@@ -280,10 +298,10 @@ function BuffetLine.BuildWidget()
 	buttons[2].kind = "food"
 	buttons[3].kind = "drink"
 
-	-- Food is the authoritative positional object: pin it to the widget's
-	-- TOPLEFT corner exactly once. The saved position always reproduces this
-	-- anchor, so Mage visibility/orientation never perturbs Food.
-	buttons[2]:SetPoint("TOPLEFT", widget, "TOPLEFT", 0, 0)
+	-- Food is the authoritative positional object: anchor it directly to
+	-- UIParent. The saved position always reproduces this anchor, so Mage
+	-- visibility/orientation/lock never perturbs Food.
+	BuffetLine.ApplyWidgetPosition()
 
 	lockIcon = widget:CreateTexture(nil, "OVERLAY")
 	lockIcon:SetTexture("Interface\\ChatFrame\\ChatFrameLockIcon")
