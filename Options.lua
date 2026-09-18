@@ -2,7 +2,6 @@ local _, BuffetLine = ...
 
 local panel
 local widgets
-local menu
 
 local function OpenOptionsPanel()
 	if InterfaceOptionsFrame then
@@ -166,58 +165,6 @@ function BuffetLine.BuildOptions()
 	local note3 = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	note3:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -240)
 	note3:SetText("Also configurable with /buffetline commands.")
-
-	menu = CreateFrame("Frame", "BuffetLineContextMenu", UIParent, "UIDropDownMenuTemplate")
-	UIDropDownMenu_Initialize(menu, function(self, level)
-		local info = UIDropDownMenu_CreateInfo()
-
-		info.text = "Lock widget"
-		info.checked = BuffetLineDB.locked
-		info.func = function()
-			BuffetLine.SetLocked(not BuffetLineDB.locked)
-			CloseDropDownMenus()
-		end
-		UIDropDownMenu_AddButton(info, level)
-
-		info.text = "Vertical layout"
-		info.checked = BuffetLineDB.orientation == "vertical"
-		info.func = function()
-			BuffetLine.SetOrientation((BuffetLineDB.orientation == "vertical") and "horizontal" or "vertical")
-			CloseDropDownMenus()
-		end
-		UIDropDownMenu_AddButton(info, level)
-
-		info.text = "Auto-restock Food and Drink"
-		info.checked = BuffetLineDB.restock.enabled
-		info.func = function()
-			BuffetLine.SetRestockEnabled(not BuffetLineDB.restock.enabled)
-			CloseDropDownMenus()
-		end
-		UIDropDownMenu_AddButton(info, level)
-
-		info.text = "Options..."
-		info.checked = nil
-		info.func = function()
-			CloseDropDownMenus()
-			OpenOptionsPanel()
-		end
-		UIDropDownMenu_AddButton(info, level)
-
-		info.text = "Reset position"
-		info.checked = nil
-		info.func = function()
-			BuffetLineDB.position = nil
-			if BuffetLine.ApplyWidgetLayout then
-				BuffetLine.ApplyWidgetLayout()
-			end
-			CloseDropDownMenus()
-		end
-		UIDropDownMenu_AddButton(info, level)
-	end, "MENU")
-end
-
-function BuffetLine.ToggleMenu()
-	ToggleDropDownMenu(1, nil, menu, "cursor", 0, 0)
 end
 
 SLASH_BUFFETLINE1 = "/buffetline"

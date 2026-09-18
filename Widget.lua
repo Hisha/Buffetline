@@ -101,6 +101,10 @@ local function ApplyButton(button, stock, placeholder)
 		button:SetAttribute("item1", stock.link)
 		button:SetAttribute("bag1", stock.bag)
 		button:SetAttribute("slot1", stock.slot)
+		button:SetAttribute("type2", "item")
+		button:SetAttribute("item2", stock.link)
+		button:SetAttribute("bag2", stock.bag)
+		button:SetAttribute("slot2", stock.slot)
 		button:SetScript("OnEnter", function(self)
 			if not stock.link then
 				return
@@ -132,6 +136,10 @@ local function ApplyButton(button, stock, placeholder)
 		button:SetAttribute("item1", nil)
 		button:SetAttribute("bag1", nil)
 		button:SetAttribute("slot1", nil)
+		button:SetAttribute("type2", nil)
+		button:SetAttribute("item2", nil)
+		button:SetAttribute("bag2", nil)
+		button:SetAttribute("slot2", nil)
 		button:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			if self.kind == "mageFood" then
@@ -199,11 +207,6 @@ local function MakeButton(index)
 	button:SetScript("OnDragStop", function(self)
 		SaveWidgetPosition()
 	end)
-	button:SetScript("OnMouseUp", function(self, mouseButton)
-		if mouseButton == "RightButton" and BuffetLine.ToggleMenu then
-			BuffetLine.ToggleMenu()
-		end
-	end)
 	buttons[index] = button
 	return button
 end
@@ -219,11 +222,6 @@ function BuffetLine.BuildWidget()
 	widget:SetClampedToScreen(true)
 	widget:SetFrameStrata("MEDIUM")
 	widget:SetFrameLevel(2)
-	widget:SetScript("OnMouseUp", function(self, mouseButton)
-		if mouseButton == "RightButton" and BuffetLine.ToggleMenu then
-			BuffetLine.ToggleMenu()
-		end
-	end)
 
 	MakeButton(1)
 	MakeButton(2)
