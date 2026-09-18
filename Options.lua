@@ -70,6 +70,12 @@ local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind,
 	box:SetWidth(44)
 	box:SetHeight(22)
 	box:SetAutoFocus(false)
+
+	-- Explicitly provide the EditBox text font for the 3.3.5 client.
+	box:SetFontObject(ChatFontNormal)
+	box:SetTextColor(1, 1, 1, 1)
+	box:SetJustifyH("LEFT")
+
 	box:SetText(DisplayNumber(getter()))
 	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
