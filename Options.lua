@@ -88,8 +88,8 @@ function BuffetLine.SetOrientation(value)
 	else
 		BuffetLineDB.orientation = value and "vertical" or "horizontal"
 	end
-	if BuffetLine.ApplyWidgetConfig then
-		BuffetLine.ApplyWidgetConfig()
+	if BuffetLine.ApplyWidgetLayout then
+		BuffetLine.ApplyWidgetLayout()
 	end
 	BuffetLine.RefreshOptions()
 end
@@ -149,8 +149,8 @@ function BuffetLine.BuildOptions()
 	reset:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -158)
 	reset:SetScript("OnClick", function()
 		BuffetLineDB.position = nil
-		if BuffetLine.ApplyWidgetConfig then
-			BuffetLine.ApplyWidgetConfig()
+		if BuffetLine.ApplyWidgetLayout then
+			BuffetLine.ApplyWidgetLayout()
 		end
 		BuffetLine.RefreshOptions()
 	end)
@@ -207,8 +207,8 @@ function BuffetLine.BuildOptions()
 		info.checked = nil
 		info.func = function()
 			BuffetLineDB.position = nil
-			if BuffetLine.ApplyWidgetConfig then
-				BuffetLine.ApplyWidgetConfig()
+			if BuffetLine.ApplyWidgetLayout then
+				BuffetLine.ApplyWidgetLayout()
 			end
 			CloseDropDownMenus()
 		end
@@ -242,8 +242,8 @@ SlashCmdList.BUFFETLINE = function(msg)
 		BuffetLine.Print("Layout set to vertical.")
 	elseif arg == "reset" then
 		db.position = nil
-		if BuffetLine.ApplyWidgetConfig then
-			BuffetLine.ApplyWidgetConfig()
+		if BuffetLine.ApplyWidgetLayout then
+			BuffetLine.ApplyWidgetLayout()
 		end
 		BuffetLine.Print("Position reset.")
 	elseif arg == "restock" then

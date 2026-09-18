@@ -30,11 +30,11 @@ end
 
 local function RestorePosition()
 	local pos = BuffetLineDB.position
+	widget:ClearAllPoints()
 	if not (pos and pos.point) then
 		widget:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 		return
 	end
-	widget:ClearAllPoints()
 	widget:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
 end
 
@@ -56,6 +56,18 @@ local function LayoutButtons()
 	end
 end
 
+local function ApplyLayout()
+	if not widget then
+		return
+	end
+	LayoutButtons()
+	RestorePosition()
+end
+
+function BuffetLine.ApplyWidgetLayout()
+	ApplyLayout()
+end
+
 function BuffetLine.ApplyWidgetConfig()
 	if not widget then
 		return
@@ -73,8 +85,6 @@ function BuffetLine.ApplyWidgetConfig()
 	for _, button in ipairs(buttons) do
 		button:EnableMouse(not locked)
 	end
-	LayoutButtons()
-	RestorePosition()
 	BuffetLine.SaveWidget = SaveWidgetPosition
 end
 
@@ -188,7 +198,6 @@ local function MakeButton(index)
 	end)
 	button:SetScript("OnDragStop", function(self)
 		SaveWidgetPosition()
-		RestorePosition()
 	end)
 	button:SetScript("OnMouseUp", function(self, mouseButton)
 		if mouseButton == "RightButton" and not BuffetLineDB.locked and BuffetLine.ToggleMenu then
@@ -230,7 +239,7 @@ function BuffetLine.BuildWidget()
 	lockIcon:SetVertexColor(1.0, 1.0, 1.0, 0.6)
 	lockIcon:Hide()
 
-	RestorePosition()
+	ApplyLayout()
 	BuffetLine.ApplyWidgetConfig()
 	BuffetLine.ApplyWidget()
 end
