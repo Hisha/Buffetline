@@ -67,18 +67,26 @@ local function CommitNumberBox(box, getter, setter)
 end
 
 local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind, getter, setter)
+	-- Mirror the known-good Poisonkeeper target EditBoxes
+	-- (/home/smithkt/git/Poisonkeeper/Options.lua) exactly: a plain
+	-- InputBoxTemplate at Poisonkeeper's proven 44x22 size, SetAutoFocus(false),
+	-- no numeric mode, no max-letters, and the caption FontString created as a
+	-- sibling on the panel rather than as a child region of the EditBox. The
+	-- 3.3.5a EditBox stored the display string (GetText() kept returning "40")
+	-- but never painted it under the old configuration, which added a FontString
+	-- child onto the box and enabled the non-default input-mode flags that
+	-- Poisonkeeper deliberately avoids.
 	local box = CreateFrame("EditBox", frameName, parent, "InputBoxTemplate")
-	box:SetSize(52, 18)
-	box:SetAutoFocus(false)
-	box:SetMaxLetters(6)
-	box:SetNumeric(true)
-	local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
-	label:SetText(labelText)
-	box:SetPoint("LEFT", parent, "LEFT", 230, y)
 	box.kind = kind
 	box.commitLabel = commitLabel
 	box.dirty = false
+	box:SetWidth(44)
+	box:SetHeight(22)
+	box:SetAutoFocus(false)
+	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
+	label:SetText(labelText)
+	box:SetPoint("LEFT", parent, "LEFT", 230, y)
 	box:SetText(DisplayNumber(getter()))
 	box:SetScript("OnTextChanged", function(self, userInput)
 		if userInput and not refreshing then
@@ -120,18 +128,8 @@ function BuffetLine.RefreshOptions()
 	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
 	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
 	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
-	BuffetLine.Print(string.format(
-		"Options refresh pre food=%s drink=%s foodShown=%s foodFocus=%s",
-		tostring(widgets.food:GetText()),
-		tostring(widgets.drink:GetText()),
-		widgets.food:IsShown() and "true" or "false",
-		widgets.food:HasFocus() and "true" or "false"))
 	widgets.food:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food))
 	widgets.drink:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink))
-	BuffetLine.Print(string.format(
-		"Options refresh post food=%s drink=%s",
-		tostring(widgets.food:GetText()),
-		tostring(widgets.drink:GetText())))
 	refreshing = false
 end
 
