@@ -53,15 +53,30 @@ local function IsMageVisible()
 end
 
 local function SaveWidgetPosition()
-	if not isDragging then
-		return
-	end
-	isDragging = false
 	local food = buttons[2]
 	if food then
 		food:StopMovingOrSizing()
 	end
-	local _, _, _, x, y = food:GetPoint()
+	if not isDragging then
+		return
+	end
+	isDragging = false
+	-- The drag engine does not leave Food's anchor in a usable TOPLEFT form, so
+	-- GetPoint() offsets are measured against a stale reference point and the
+	-- load-time validator (correctly) rejects them as off-screen. Derive the
+	-- position from Food's ACTUAL geometry instead, the way Poisonkeeper's
+	-- StopDrag does: read the absolute center, convert into UIParent coordinates
+	-- with the effective-scale ratio, then translate the CENTER offset into the
+	-- TOPLEFT -> UIParent TOPLEFT offset that ApplyWidgetPosition restores.
+	local cx, cy = food:GetCenter()
+	local parentCx, parentCy = UIParent:GetCenter()
+	local scale = food:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local relX = cx and (cx * scale - parentCx) or 0
+	local relY = cy and (cy * scale - parentCy) or 0
+	local fw = (food:GetWidth() or 0) * scale
+	local fh = (food:GetHeight() or 0) * scale
+	local x = relX - fw / 2 + UIParent:GetWidth() / 2
+	local y = relY + fh / 2 - UIParent:GetHeight() / 2
 	local pos = {
 		format = BuffetLine.POSITION_FORMAT,
 		point = "TOPLEFT",
@@ -70,6 +85,16 @@ local function SaveWidgetPosition()
 		y = y,
 	}
 	BuffetLineDB.position = pos
+	BuffetLine.Print(string.format(
+		"Position SAVE format=%s x=%s y=%s",
+		tostring(pos.format), tostring(pos.x), tostring(pos.y)))
+	BuffetLine.Print(string.format(
+		"Position STORED format=%s point=%s relPoint=%s x=%s y=%s",
+		tostring(BuffetLineDB.position.format),
+		tostring(BuffetLineDB.position.point),
+		tostring(BuffetLineDB.position.relPoint),
+		tostring(BuffetLineDB.position.x),
+		tostring(BuffetLineDB.position.y)))
 end
 
 -- Anchor the Food button directly to UIParent. This is the ONLY code path that
@@ -87,9 +112,17 @@ function BuffetLine.ApplyWidgetPosition()
 		and type(pos.y) == "number"
 	then
 		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x, pos.y)
+		BuffetLine.Print(string.format(
+			"Position APPLY x=%s y=%s",
+			tostring(pos.x), tostring(pos.y)))
 	else
 		local width, height = GetScreenWidth(), GetScreenHeight()
-		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", width / 2, -(height / 2))
+		local x = width / 2
+		local y = -(height / 2)
+		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x, y)
+		BuffetLine.Print(string.format(
+			"Position APPLY x=%s y=%s",
+			tostring(x), tostring(y)))
 	end
 end
 

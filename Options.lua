@@ -120,8 +120,18 @@ function BuffetLine.RefreshOptions()
 	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
 	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
 	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
+	BuffetLine.Print(string.format(
+		"Options refresh pre food=%s drink=%s foodShown=%s foodFocus=%s",
+		tostring(widgets.food:GetText()),
+		tostring(widgets.drink:GetText()),
+		widgets.food:IsShown() and "true" or "false",
+		widgets.food:HasFocus() and "true" or "false"))
 	widgets.food:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food))
 	widgets.drink:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink))
+	BuffetLine.Print(string.format(
+		"Options refresh post food=%s drink=%s",
+		tostring(widgets.food:GetText()),
+		tostring(widgets.drink:GetText())))
 	refreshing = false
 end
 
@@ -241,6 +251,11 @@ function BuffetLine.BuildOptions()
 		if not widgets then
 			return
 		end
+		-- Match the known-good Poisonkeeper pattern (panel.refresh AND OnShow
+		-- both repaint): always SetText while the panel is actually visible, so
+		-- values that were written while hidden (BuildOptions at ADDON_LOADED)
+		-- are re-rendered on screen instead of staying invisible until focus.
+		BuffetLine.RefreshOptions()
 		BuffetLine.Print(string.format(
 			"Options shown food=%s drink=%s dbFood=%s dbDrink=%s enabled=%s locked=%s orientation=%s",
 			widgets.food:GetText(), widgets.drink:GetText(),

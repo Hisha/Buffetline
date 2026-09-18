@@ -463,16 +463,30 @@ function BuffetLine.OnAddonLoaded()
 	-- A saved position is usable only when it matches this schema version, the
 	-- Food-authoritative TOPLEFT representation, and plausible coordinates that
 	-- could actually place the widget on screen.
-	if type(db.position) ~= "table"
-		or db.position.format ~= BuffetLine.POSITION_FORMAT
-		or db.position.point ~= "TOPLEFT"
-		or type(db.position.x) ~= "number"
-		or db.position.x ~= db.position.x
-		or type(db.position.y) ~= "number"
-		or db.position.y ~= db.position.y
-		or not BuffetLine.IsValidPosition(db.position.x, db.position.y)
+	local rawPos = type(db.position) == "table" and db.position or nil
+	BuffetLine.Print(string.format(
+		"Position LOAD raw format=%s x=%s y=%s",
+		tostring(rawPos and rawPos.format),
+		tostring(rawPos and rawPos.x),
+		tostring(rawPos and rawPos.y)))
+	if not rawPos
+		or rawPos.format ~= BuffetLine.POSITION_FORMAT
+		or rawPos.point ~= "TOPLEFT"
+		or type(rawPos.x) ~= "number"
+		or rawPos.x ~= rawPos.x
+		or type(rawPos.y) ~= "number"
+		or rawPos.y ~= rawPos.y
+		or not BuffetLine.IsValidPosition(rawPos.x, rawPos.y)
 	then
+		BuffetLine.Print(string.format(
+			"Position VALID result=rejected x=%s y=%s",
+			tostring(rawPos and rawPos.x),
+			tostring(rawPos and rawPos.y)))
 		db.position = nil
+	else
+		BuffetLine.Print(string.format(
+			"Position VALID result=accepted x=%s y=%s",
+			tostring(rawPos.x), tostring(rawPos.y)))
 	end
 	BuffetLine.Print(string.format(
 		"AddonLoaded saved food=%s drink=%s enabled=%s locked=%s orientation=%s",
