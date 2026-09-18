@@ -111,7 +111,7 @@ local function ApplyButton(button, stock, placeholder)
 			if kind == "mageFood" then
 				GameTooltip:AddLine("Conjured Mage Food", 1, 0.8, 0.2)
 			elseif kind == "food" then
-				GameTooltip:AddLine("Restores health", 1, 0.8, 0.2)
+				GameTooltip:AddLine("Food", 1, 0.8, 0.2)
 			elseif kind == "drink" then
 				GameTooltip:AddLine("Restores mana", 1, 0.8, 0.2)
 			end

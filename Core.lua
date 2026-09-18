@@ -95,7 +95,7 @@ local function ItemMeta(itemID, link)
 		return cache[itemID]
 	end
 	local name, _, _, itemLevel, minLevel, _, subType, stackCount, _, texture = GetItemInfo(link or itemID)
-	if not name or not subType or not texture then
+	if not name or not itemLevel or not minLevel or not subType or not texture then
 		return nil
 	end
 	local meta = {
@@ -155,7 +155,7 @@ local function ScanBags()
 		for slot = 1, GetContainerNumSlots(bag) do
 			local itemID = GetContainerItemID(bag, slot)
 			if itemID then
-				local count = select(2, GetContainerItemInfo(bag, slot))
+				local count = select(2, GetContainerItemInfo(bag, slot)) or 0
 				local link = GetContainerItemLink(bag, slot)
 				local meta = ItemMeta(itemID, link)
 				if not meta then
@@ -191,7 +191,7 @@ end
 function BuffetLine.BestNormal(kind)
 	local b = BuffetLine.buckets
 	if kind == "food" then
-		return BestOf(b.food) or BestOf(b.conjFood)
+		return BestOf(b.food)
 	elseif kind == "drink" then
 		return BestOf(b.drink) or BestOf(b.conjDrink)
 	end
