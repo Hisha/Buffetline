@@ -117,15 +117,12 @@ function BuffetLine.DoRestock()
 		local itemID = ExtractID(link)
 		if itemID then
 			local meta = BuffetLine.GetMeta(itemID, link)
-			if meta
-				and not BuffetLine.CONJURED[itemID]
-				and meta.minLevel <= level
-				and (meta.subType == BuffetLine.SUB_FOOD or meta.subType == BuffetLine.SUB_DRINK)
-			then
+			if meta and not BuffetLine.CONJURED[itemID] and meta.minLevel <= level then
 				local entry = { index = index, id = itemID, meta = meta }
-				if meta.subType == BuffetLine.SUB_FOOD then
+				if BuffetLine.FOOD_IDS[itemID] then
 					tinsert(vendorFood, entry)
-				else
+				end
+				if BuffetLine.DRINK_IDS[itemID] then
 					tinsert(vendorDrink, entry)
 				end
 			end

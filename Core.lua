@@ -37,24 +37,46 @@ BuffetLine.DEFAULTS = {
 	},
 }
 
-BuffetLine.SUB_FOOD = "Food"
-BuffetLine.SUB_DRINK = "Drink"
-BuffetLine.SUB_BOTH = "Food & Drink"
+-- Food and drink both use the "Food & Drink" item subclass in 3.3.5, and the
+-- on-use spell returned by GetItemSpell is not reliably available for items in
+-- the bags, so neither can separate them. The proven approach of the Buffet
+-- 3.3.5 addon is a curated item-ID database: every known health food maps to
+-- the Food slot, every known mana drink to the Drink slot, and conjured mage
+-- items are kept separate. IDs below are taken from the Buffet 3.3.5 database.
+BuffetLine.FOOD_IDS = {
+	[117] = true, [414] = true, [422] = true, [733] = true, [787] = true, [961] = true, [1326] = true, [1707] = true, [2070] = true, [2287] = true, [2679] = true, [2681] = true, [2682] = true, [2685] = true,
+	[3448] = true, [3770] = true, [3771] = true, [3927] = true, [4536] = true, [4537] = true, [4538] = true, [4539] = true, [4540] = true, [4541] = true, [4542] = true, [4544] = true, [4592] = true, [4593] = true,
+	[4594] = true, [4599] = true, [4601] = true, [4602] = true, [4604] = true, [4605] = true, [4606] = true, [4607] = true, [4608] = true, [4656] = true, [5057] = true, [5066] = true, [5095] = true, [5473] = true,
+	[5478] = true, [5526] = true, [6290] = true, [6299] = true, [6316] = true, [6807] = true, [6887] = true, [6890] = true, [7097] = true, [7228] = true, [8364] = true, [8932] = true, [8948] = true, [8950] = true,
+	[8952] = true, [8953] = true, [8957] = true, [9681] = true, [11109] = true, [11415] = true, [11444] = true, [12238] = true, [13546] = true, [13724] = true, [13755] = true, [13893] = true, [13930] = true, [13933] = true,
+	[13935] = true, [16166] = true, [16167] = true, [16168] = true, [16169] = true, [16170] = true, [16171] = true, [16766] = true, [17119] = true, [17344] = true, [17406] = true, [17407] = true, [17408] = true, [18255] = true,
+	[18632] = true, [18633] = true, [18635] = true, [19223] = true, [19224] = true, [19225] = true, [19301] = true, [19304] = true, [19305] = true, [19306] = true, [19696] = true, [19994] = true, [19995] = true, [19996] = true,
+	[20031] = true, [20857] = true, [21030] = true, [21031] = true, [21033] = true, [21071] = true, [21153] = true, [21235] = true, [21552] = true, [22324] = true, [23160] = true, [23495] = true, [24072] = true, [24338] = true,
+	[24408] = true, [27661] = true, [27854] = true, [27855] = true, [27856] = true, [27857] = true, [27858] = true, [27859] = true, [28486] = true, [29393] = true, [29394] = true, [29412] = true, [29448] = true, [29449] = true,
+	[29450] = true, [29451] = true, [29452] = true, [29453] = true, [30355] = true, [30458] = true, [30610] = true, [30816] = true, [32685] = true, [32686] = true, [32722] = true, [33048] = true, [33053] = true, [33443] = true,
+	[33449] = true, [33451] = true, [33452] = true, [33454] = true, [34747] = true, [34759] = true, [34760] = true, [34761] = true, [34780] = true, [35947] = true, [35948] = true, [35949] = true, [35950] = true, [35951] = true,
+	[35952] = true, [35953] = true, [37252] = true, [38427] = true, [38428] = true, [38706] = true, [40202] = true, [40356] = true, [40358] = true, [40359] = true, [41729] = true, [41751] = true, [42428] = true, [42429] = true,
+	[42430] = true, [42431] = true, [42432] = true, [42433] = true, [42434] = true, [42778] = true, [43087] = true, [44049] = true, [44071] = true, [44072] = true, [44607] = true, [44608] = true, [44609] = true, [44722] = true,
+	[44749] = true, [45932] = true,
+}
 
-BuffetLine.FOOD_USE_SPELL_ID = 433
-BuffetLine.DRINK_USE_SPELL_ID = 430
--- Food and drink consumables share the category-localized "Food & Drink" item
--- subclass, so the subtype cannot separate them (nor can locating reference
--- items, whose data may never be cached). Instead use the bag item's own
--- on-use spell, returned by GetItemSpell: every mana-restoring drink casts
--- spell 430 "Drink", every health-restoring food casts spell 433 "Food".
--- Spell IDs are locale-independent and available for any item in the bags.
-local function UseSpellClass(item)
-	local _, spellID = GetItemSpell(item)
-	if spellID == BuffetLine.DRINK_USE_SPELL_ID then
-		return "drink"
-	elseif spellID == BuffetLine.FOOD_USE_SPELL_ID then
+BuffetLine.DRINK_IDS = {
+	[159] = true, [1179] = true, [1205] = true, [1401] = true, [1645] = true, [1708] = true, [2682] = true, [3448] = true, [4791] = true, [8766] = true, [9451] = true, [10841] = true, [13724] = true, [17404] = true,
+	[17405] = true, [18300] = true, [19299] = true, [19300] = true, [19301] = true, [20031] = true, [21071] = true, [21153] = true, [23161] = true, [23585] = true, [24006] = true, [24007] = true, [27860] = true, [28399] = true,
+	[29395] = true, [29401] = true, [29454] = true, [30457] = true, [32453] = true, [32455] = true, [32668] = true, [32722] = true, [33042] = true, [33053] = true, [33444] = true, [33445] = true, [34759] = true, [34760] = true,
+	[34761] = true, [34780] = true, [35954] = true, [37253] = true, [38429] = true, [38430] = true, [38431] = true, [38698] = true, [39520] = true, [40357] = true, [41731] = true, [42777] = true, [43086] = true, [43236] = true,
+	[44750] = true, [45932] = true,
+}
+
+local function UseClass(itemID)
+	local food = BuffetLine.FOOD_IDS[itemID]
+	local drink = BuffetLine.DRINK_IDS[itemID]
+	if food and drink then
+		return "both"
+	elseif food then
 		return "food"
+	elseif drink then
+		return "drink"
 	end
 	return nil
 end
@@ -175,11 +197,12 @@ local function ScanBags()
 					if BuffetLine.CONJURED[itemID] then
 						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
 					else
-						local kind = UseSpellClass(itemID)
-						if kind == "drink" then
-							BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
-						elseif kind == "food" then
+						local kind = UseClass(itemID)
+						if kind == "food" or kind == "both" then
 							BucketAdd(b.food, itemID, meta, bag, slot, link, count)
+						end
+						if kind == "drink" or kind == "both" then
+							BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
 						end
 					end
 				end
