@@ -2,6 +2,7 @@ local _, BuffetLine = ...
 
 local panel
 local widgets
+local refreshing = false
 
 local function OpenOptionsPanel()
 	if InterfaceOptionsFrame then
@@ -33,6 +34,23 @@ local function MakeCheck(parent, frameName, y, labelText, getter, setter)
 	return check
 end
 
+local function DisplayNumber(value)
+	local v = tonumber(value)
+	if not v or v ~= v or v < 0 then
+		v = 0
+	end
+	return tostring(math.floor(v))
+end
+
+local function CommitNumberBox(box, getter, setter)
+	local value = tonumber(box:GetText())
+	if value and value >= 0 then
+		setter(math.floor(value))
+	else
+		box:SetText(DisplayNumber(getter()))
+	end
+end
+
 local function MakeNumberBox(parent, frameName, y, labelText, getter, setter)
 	local box = CreateFrame("EditBox", frameName, parent, "InputBoxTemplate")
 	box:SetSize(52, 18)
@@ -43,32 +61,46 @@ local function MakeNumberBox(parent, frameName, y, labelText, getter, setter)
 	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
 	label:SetText(labelText)
 	box:SetPoint("LEFT", parent, "LEFT", 230, y)
-	box:SetText(getter())
+	box.editing = false
+	box:SetText(DisplayNumber(getter()))
+	box:SetScript("OnEditFocusGained", function(self)
+		self.editing = true
+	end)
+	box:SetScript("OnEditFocusLost", function(self)
+		self.editing = false
+		CommitNumberBox(self, getter, setter)
+	end)
 	box:SetScript("OnEnterPressed", function(self)
-		local value = tonumber(self:GetText())
-		if value and value >= 0 then
-			setter(value)
-		else
-			self:SetText(getter())
-		end
+		CommitNumberBox(self, getter, setter)
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEscapePressed", function(self)
-		self:SetText(getter())
+		self:SetText(DisplayNumber(getter()))
 		self:ClearFocus()
 	end)
+	box.commit = function(self)
+		CommitNumberBox(self, getter, setter)
+	end
 	return box
 end
 
 function BuffetLine.RefreshOptions()
-	if not widgets then
+	if refreshing or not widgets then
 		return
 	end
-	widgets.lock:SetChecked(BuffetLineDB.locked)
+	refreshing = true
+	if widgets.food.editing and widgets.food.commit then
+		widgets.food:commit()
+	end
+	if widgets.drink.editing and widgets.drink.commit then
+		widgets.drink:commit()
+	end
+	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
 	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
-	widgets.restock:SetChecked(BuffetLineDB.restock.enabled)
-	widgets.food:SetText(BuffetLineDB.restock.food)
-	widgets.drink:SetText(BuffetLineDB.restock.drink)
+	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
+	widgets.food:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food))
+	widgets.drink:SetText(DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink))
+	refreshing = false
 end
 
 function BuffetLine.SetLocked(value)
@@ -140,6 +172,18 @@ function BuffetLine.BuildOptions()
 		return BuffetLineDB.restock.drink
 	end, function(value)
 		BuffetLine.SetRestockTarget("drink", value)
+	end)
+
+	panel:SetScript("OnHide", function()
+		if not widgets then
+			return
+		end
+		if widgets.food and widgets.food.commit then
+			widgets.food:commit()
+		end
+		if widgets.drink and widgets.drink.commit then
+			widgets.drink:commit()
+		end
 	end)
 
 	local reset = CreateFrame("Button", "BuffetLineOptReset", panel, "UIPanelButtonTemplate")

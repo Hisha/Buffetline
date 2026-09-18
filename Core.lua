@@ -79,6 +79,24 @@ BuffetLine.DEFAULTS = {
 	},
 }
 
+-- Normalize a restock target loaded from SavedVariables or typed into the
+-- options panel so invalid/corrupt input can never store a nil or empty value
+-- or drive runaway purchases.
+local function SanitizeTarget(value)
+	local target = tonumber(value)
+	if type(target) ~= "number" or target ~= target then
+		return 0
+	end
+	target = math.floor(target)
+	if target < 0 then
+		return 0
+	end
+	if target > 9999 then
+		return 9999
+	end
+	return target
+end
+
 -- Food and drink both use the "Food & Drink" item subclass in 3.3.5, and the
 -- on-use spell returned by GetItemSpell is not reliably available for items in
 -- the bags, so neither can separate them. The proven approach of the Buffet
@@ -325,7 +343,7 @@ events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("BAG_UPDATE")
 events:RegisterEvent("PLAYER_LEVEL_UP")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
-events:RegisterEvent("MERCHANT_SHOWED")
+events:RegisterEvent("MERCHANT_SHOW")
 events:RegisterEvent("MERCHANT_CLOSED")
 
 local dirty = false
@@ -375,7 +393,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 		if dirty then
 			SafeScan()
 		end
-	elseif event == "MERCHANT_SHOWED" then
+	elseif event == "MERCHANT_SHOW" then
 		SafeScan()
 		if BuffetLine.DoRestock then
 			BuffetLine.DoRestock()
@@ -409,6 +427,20 @@ function BuffetLine.OnAddonLoaded()
 		if db.restock[key] == nil then
 			db.restock[key] = value
 		end
+	end
+	db.locked = db.locked and true or false
+	if db.orientation ~= "vertical" then
+		db.orientation = "horizontal"
+	end
+	db.restock.enabled = db.restock.enabled and true or false
+	db.restock.food = SanitizeTarget(db.restock.food)
+	db.restock.drink = SanitizeTarget(db.restock.drink)
+	if type(db.position) ~= "table"
+		or not db.position.point
+		or type(db.position.x) ~= "number"
+		or type(db.position.y) ~= "number"
+	then
+		db.position = nil
 	end
 	if BuffetLine.BuildWidget then
 		BuffetLine.BuildWidget()
