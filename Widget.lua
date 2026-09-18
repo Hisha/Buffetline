@@ -83,7 +83,7 @@ function BuffetLine.ApplyWidgetConfig()
 		end
 	end
 	for _, button in ipairs(buttons) do
-		button:EnableMouse(not locked)
+		button:EnableMouse(true)
 	end
 	BuffetLine.SaveWidget = SaveWidgetPosition
 end
@@ -97,10 +97,10 @@ local function ApplyButton(button, stock, placeholder)
 		end
 		button.count:SetText(stock.total)
 		button.count:Show()
-		button:SetAttribute("type", "item")
-		button:SetAttribute("item", stock.link)
-		button:SetAttribute("bag", stock.bag)
-		button:SetAttribute("slot", stock.slot)
+		button:SetAttribute("type1", "item")
+		button:SetAttribute("item1", stock.link)
+		button:SetAttribute("bag1", stock.bag)
+		button:SetAttribute("slot1", stock.slot)
 		button:SetScript("OnEnter", function(self)
 			if not stock.link then
 				return
@@ -128,10 +128,10 @@ local function ApplyButton(button, stock, placeholder)
 		end
 		button.count:SetText("0")
 		button.count:Show()
-		button:SetAttribute("type", nil)
-		button:SetAttribute("item", nil)
-		button:SetAttribute("bag", nil)
-		button:SetAttribute("slot", nil)
+		button:SetAttribute("type1", nil)
+		button:SetAttribute("item1", nil)
+		button:SetAttribute("bag1", nil)
+		button:SetAttribute("slot1", nil)
 		button:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			if self.kind == "mageFood" then
@@ -200,7 +200,7 @@ local function MakeButton(index)
 		SaveWidgetPosition()
 	end)
 	button:SetScript("OnMouseUp", function(self, mouseButton)
-		if mouseButton == "RightButton" and not BuffetLineDB.locked and BuffetLine.ToggleMenu then
+		if mouseButton == "RightButton" and BuffetLine.ToggleMenu then
 			BuffetLine.ToggleMenu()
 		end
 	end)
@@ -220,7 +220,7 @@ function BuffetLine.BuildWidget()
 	widget:SetFrameStrata("MEDIUM")
 	widget:SetFrameLevel(2)
 	widget:SetScript("OnMouseUp", function(self, mouseButton)
-		if mouseButton == "RightButton" and not BuffetLineDB.locked and BuffetLine.ToggleMenu then
+		if mouseButton == "RightButton" and BuffetLine.ToggleMenu then
 			BuffetLine.ToggleMenu()
 		end
 	end)

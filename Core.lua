@@ -41,17 +41,33 @@ BuffetLine.SUB_FOOD = "Food"
 BuffetLine.SUB_DRINK = "Drink"
 BuffetLine.SUB_BOTH = "Food & Drink"
 
+BuffetLine.FOOD_SPELL = nil
+BuffetLine.DRINK_SPELL = nil
+
 local function TryLocalize()
-	local foodName, _, _, _, _, _, foodSub = GetItemInfo(117)
-	local drinkName, _, _, _, _, _, drinkSub = GetItemInfo(159)
-	local bothName, _, _, _, _, _, bothSub = GetItemInfo(43523)
-	if foodName and drinkName and bothName then
-		BuffetLine.SUB_FOOD = foodSub or BuffetLine.SUB_FOOD
-		BuffetLine.SUB_DRINK = drinkSub or BuffetLine.SUB_DRINK
-		BuffetLine.SUB_BOTH = bothSub or BuffetLine.SUB_BOTH
-		return true
+	local foodName = GetItemInfo(117)
+	local drinkName = GetItemInfo(159)
+	if foodName and drinkName then
+		local foodSpell = GetItemSpell(foodName)
+		local drinkSpell = GetItemSpell(drinkName)
+		if foodSpell and drinkSpell and foodSpell ~= drinkSpell then
+			BuffetLine.FOOD_SPELL = foodSpell
+			BuffetLine.DRINK_SPELL = drinkSpell
+			return true
+		end
 	end
 	return false
+end
+
+local function IsDrink(item)
+	local drinkSpell = BuffetLine.DRINK_SPELL
+	if not (BuffetLine.FOOD_SPELL and drinkSpell) then
+		return false
+	end
+	if BuffetLine.FOOD_SPELL == drinkSpell then
+		return false
+	end
+	return GetItemSpell(item) == drinkSpell
 end
 
 BuffetLine.buckets = {
@@ -131,14 +147,20 @@ local function BucketAdd(bucket, itemID, meta, bag, slot, link, count)
 	entry.total = entry.total + count
 end
 
+local function IsBetter(entry, best)
+	if entry.meta.minLevel ~= best.meta.minLevel then
+		return entry.meta.minLevel > best.meta.minLevel
+	end
+	if entry.meta.itemLevel ~= best.meta.itemLevel then
+		return entry.meta.itemLevel > best.meta.itemLevel
+	end
+	return entry.meta.name < best.meta.name
+end
+
 local function BestOf(bucket)
 	local best
 	for _, entry in pairs(bucket) do
-		if not best
-			or entry.meta.itemLevel > best.meta.itemLevel
-			or (entry.meta.itemLevel == best.meta.itemLevel and entry.total > best.total)
-			or (entry.meta.itemLevel == best.meta.itemLevel and entry.total == best.total and entry.meta.name < best.meta.name)
-		then
+		if not best or IsBetter(entry, best) then
 			best = entry
 		end
 	end
@@ -161,25 +183,12 @@ local function ScanBags()
 				if not meta then
 					unresolved = unresolved + 1
 				elseif meta.minLevel <= level then
-					local subType = meta.subType
-					if subType == BuffetLine.SUB_BOTH then
-						if BuffetLine.CONJURED[itemID] then
-							BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
-						else
-							BucketAdd(b.food, itemID, meta, bag, slot, link, count)
-						end
-					elseif subType == BuffetLine.SUB_FOOD then
-						if BuffetLine.CONJURED[itemID] then
-							BucketAdd(b.conjFood, itemID, meta, bag, slot, link, count)
-						else
-							BucketAdd(b.food, itemID, meta, bag, slot, link, count)
-						end
-					elseif subType == BuffetLine.SUB_DRINK then
-						if BuffetLine.CONJURED[itemID] then
-							BucketAdd(b.conjDrink, itemID, meta, bag, slot, link, count)
-						else
-							BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
-						end
+					if BuffetLine.CONJURED[itemID] then
+						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
+					elseif IsDrink(meta.name) then
+						BucketAdd(b.drink, itemID, meta, bag, slot, link, count)
+					else
+						BucketAdd(b.food, itemID, meta, bag, slot, link, count)
 					end
 				end
 			end
@@ -224,6 +233,9 @@ function BuffetLine.UpdateButtons()
 end
 
 function BuffetLine.Scan()
+	if not (BuffetLine.FOOD_SPELL and BuffetLine.DRINK_SPELL) then
+		TryLocalize()
+	end
 	local unresolved = ScanBags()
 	BuffetLine.UpdateButtons()
 	return unresolved
