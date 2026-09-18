@@ -79,22 +79,43 @@ BuffetLine.DEFAULTS = {
 	},
 }
 
--- Normalize a restock target loaded from SavedVariables or typed into the
--- options panel so invalid/corrupt input can never store a nil or empty value
--- or drive runaway purchases.
-local function SanitizeTarget(value)
+-- Schema version of the saved widget position. Bump this whenever the stored
+-- coordinate representation changes so load-time validation can tell a
+-- compatible saved position from legacy or incompatible data.
+BuffetLine.POSITION_FORMAT = 1
+
+-- ONE shared restock-target validator, used by initialization, the options
+-- panel, slash commands, and restock. Returns the whole number when value is a
+-- valid target (integer 0..1000), or nil for empty, nonnumeric, fractional,
+-- negative, or out-of-range input so callers can reject it instead of storing
+-- junk in SavedVariables.
+function BuffetLine.SanitizeTarget(value)
 	local target = tonumber(value)
 	if type(target) ~= "number" or target ~= target then
-		return 0
+		return nil
 	end
-	target = math.floor(target)
-	if target < 0 then
-		return 0
-	end
-	if target > 9999 then
-		return 9999
+	if target < 0 or target > 1000 or math.floor(target) ~= target then
+		return nil
 	end
 	return target
+end
+
+-- True when a UIParent TOPLEFT offset pair could reasonably place the widget
+-- on screen. Load-time validation uses this so corrupt or foreign coordinates
+-- reset to the normal default instead of stranding the widget off-screen.
+function BuffetLine.IsValidPosition(x, y)
+	local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
+	if not (screenWidth and screenWidth > 0 and screenHeight and screenHeight > 0) then
+		return true
+	end
+	local margin = 50
+	if x < -margin or x > screenWidth + margin then
+		return false
+	end
+	if y > margin or y < -(screenHeight + margin) then
+		return false
+	end
+	return true
 end
 
 -- Food and drink both use the "Food & Drink" item subclass in 3.3.5, and the
@@ -433,12 +454,23 @@ function BuffetLine.OnAddonLoaded()
 		db.orientation = "horizontal"
 	end
 	db.restock.enabled = db.restock.enabled and true or false
-	db.restock.food = SanitizeTarget(db.restock.food)
-	db.restock.drink = SanitizeTarget(db.restock.drink)
+	-- Invalid or legacy restock targets reset to the normal default; only valid
+	-- 0..1000 integer targets survive.
+	db.restock.food = BuffetLine.SanitizeTarget(db.restock.food)
+		or BuffetLine.DEFAULTS.restock.food
+	db.restock.drink = BuffetLine.SanitizeTarget(db.restock.drink)
+		or BuffetLine.DEFAULTS.restock.drink
+	-- A saved position is usable only when it matches this schema version, the
+	-- Food-authoritative TOPLEFT representation, and plausible coordinates that
+	-- could actually place the widget on screen.
 	if type(db.position) ~= "table"
-		or not db.position.point
+		or db.position.format ~= BuffetLine.POSITION_FORMAT
+		or db.position.point ~= "TOPLEFT"
 		or type(db.position.x) ~= "number"
+		or db.position.x ~= db.position.x
 		or type(db.position.y) ~= "number"
+		or db.position.y ~= db.position.y
+		or not BuffetLine.IsValidPosition(db.position.x, db.position.y)
 	then
 		db.position = nil
 	end

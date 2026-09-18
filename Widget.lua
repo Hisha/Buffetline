@@ -63,6 +63,7 @@ local function SaveWidgetPosition()
 	end
 	local _, _, _, x, y = food:GetPoint()
 	local pos = {
+		format = BuffetLine.POSITION_FORMAT,
 		point = "TOPLEFT",
 		relPoint = "TOPLEFT",
 		x = x,
@@ -81,7 +82,10 @@ function BuffetLine.ApplyWidgetPosition()
 	end
 	local pos = BuffetLineDB.position
 	food:ClearAllPoints()
-	if pos and pos.point and pos.x ~= nil then
+	if pos and pos.point == "TOPLEFT"
+		and type(pos.x) == "number"
+		and type(pos.y) == "number"
+	then
 		food:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pos.x, pos.y)
 	else
 		local width, height = GetScreenWidth(), GetScreenHeight()

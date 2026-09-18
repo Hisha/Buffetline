@@ -42,16 +42,31 @@ local function DisplayNumber(value)
 	return tostring(math.floor(v))
 end
 
+-- Commit one target EditBox. Only a user edit (box.dirty) commits; a
+-- programmatic refresh/repaint never does. Valid 0..1000 integers are stored;
+-- anything else is rejected, the box is repainted from the stored value, and a
+-- message is printed so invalid input never reaches SavedVariables.
 local function CommitNumberBox(box, getter, setter)
-	local value = tonumber(box:GetText())
-	if value and value >= 0 then
-		setter(math.floor(value))
-	else
-		box:SetText(DisplayNumber(getter()))
+	if not box.dirty then
+		return
 	end
+	box.dirty = false
+	local raw = box:GetText()
+	local value = BuffetLine.SanitizeTarget(raw)
+	if not value then
+		box:SetText(DisplayNumber(getter()))
+		BuffetLine.Print(string.format(
+			"%s restock target must be an integer from 0 through 1000.",
+			box.commitLabel))
+		return
+	end
+	setter(value)
+	BuffetLine.Print(string.format(
+		"Commit %s raw=%s stored=%s",
+		box.commitLabel, raw, tostring(BuffetLineDB.restock[box.kind])))
 end
 
-local function MakeNumberBox(parent, frameName, y, labelText, getter, setter)
+local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind, getter, setter)
 	local box = CreateFrame("EditBox", frameName, parent, "InputBoxTemplate")
 	box:SetSize(52, 18)
 	box:SetAutoFocus(false)
@@ -61,13 +76,16 @@ local function MakeNumberBox(parent, frameName, y, labelText, getter, setter)
 	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
 	label:SetText(labelText)
 	box:SetPoint("LEFT", parent, "LEFT", 230, y)
-	box.editing = false
+	box.kind = kind
+	box.commitLabel = commitLabel
+	box.dirty = false
 	box:SetText(DisplayNumber(getter()))
-	box:SetScript("OnEditFocusGained", function(self)
-		self.editing = true
+	box:SetScript("OnTextChanged", function(self, userInput)
+		if userInput and not refreshing then
+			self.dirty = true
+		end
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		self.editing = false
 		CommitNumberBox(self, getter, setter)
 	end)
 	box:SetScript("OnEnterPressed", function(self)
@@ -75,6 +93,7 @@ local function MakeNumberBox(parent, frameName, y, labelText, getter, setter)
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEscapePressed", function(self)
+		self.dirty = false
 		self:SetText(DisplayNumber(getter()))
 		self:ClearFocus()
 	end)
@@ -88,13 +107,16 @@ function BuffetLine.RefreshOptions()
 	if refreshing or not widgets then
 		return
 	end
+	-- A programmatic refresh is NOT a user commit: discard any pending edits so
+	-- a repaint can never save partial text. Explicit edit-completion paths
+	-- (Enter, focus loss, panel hide) are the only ways a new value is stored.
+	if widgets.food then
+		widgets.food.dirty = false
+	end
+	if widgets.drink then
+		widgets.drink.dirty = false
+	end
 	refreshing = true
-	if widgets.food.editing and widgets.food.commit then
-		widgets.food:commit()
-	end
-	if widgets.drink.editing and widgets.drink.commit then
-		widgets.drink:commit()
-	end
 	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
 	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
 	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
@@ -136,8 +158,13 @@ function BuffetLine.SetRestockEnabled(value)
 end
 
 function BuffetLine.SetRestockTarget(kind, value)
-	BuffetLineDB.restock[kind] = (value and value >= 0 and value) or 0
+	local target = BuffetLine.SanitizeTarget(value)
+	if not target then
+		return false
+	end
+	BuffetLineDB.restock[kind] = target
 	BuffetLine.RefreshOptions()
+	return true
 end
 
 function BuffetLine.BuildOptions()
@@ -162,13 +189,13 @@ function BuffetLine.BuildOptions()
 		return BuffetLineDB.restock.enabled
 	end, BuffetLine.SetRestockEnabled)
 
-	widgets.food = MakeNumberBox(panel, "BuffetLineOptFood", -102, "Food restock target:", function()
+	widgets.food = MakeNumberBox(panel, "BuffetLineOptFood", -102, "Food restock target:", "Food", "food", function()
 		return BuffetLineDB.restock.food
 	end, function(value)
 		BuffetLine.SetRestockTarget("food", value)
 	end)
 
-	widgets.drink = MakeNumberBox(panel, "BuffetLineOptDrink", -128, "Drink restock target:", function()
+	widgets.drink = MakeNumberBox(panel, "BuffetLineOptDrink", -128, "Drink restock target:", "Drink", "drink", function()
 		return BuffetLineDB.restock.drink
 	end, function(value)
 		BuffetLine.SetRestockTarget("drink", value)
@@ -255,11 +282,19 @@ SlashCmdList.BUFFETLINE = function(msg)
 	elseif strmatch(arg, "^restock%s+[01]$") then
 		BuffetLine.SetRestockEnabled(tonumber(strmatch(arg, "%d+")) == 1)
 	elseif strmatch(arg, "^food%s+%d+$") then
-		BuffetLine.SetRestockTarget("food", tonumber(strmatch(arg, "%d+")))
-		BuffetLine.Print("Food restock target set to " .. db.restock.food .. ".")
+		local ok = BuffetLine.SetRestockTarget("food", tonumber(strmatch(arg, "%d+")))
+		if ok then
+			BuffetLine.Print("Food restock target set to " .. db.restock.food .. ".")
+		else
+			BuffetLine.Print("Food restock target must be an integer from 0 through 1000.")
+		end
 	elseif strmatch(arg, "^drink%s+%d+$") then
-		BuffetLine.SetRestockTarget("drink", tonumber(strmatch(arg, "%d+")))
-		BuffetLine.Print("Drink restock target set to " .. db.restock.drink .. ".")
+		local ok = BuffetLine.SetRestockTarget("drink", tonumber(strmatch(arg, "%d+")))
+		if ok then
+			BuffetLine.Print("Drink restock target set to " .. db.restock.drink .. ".")
+		else
+			BuffetLine.Print("Drink restock target must be an integer from 0 through 1000.")
+		end
 	else
 		BuffetLine.Print("Usage: /buffetline [lock|unlock|horizontal|vertical|restock [0|1]|food N|drink N|reset]")
 	end

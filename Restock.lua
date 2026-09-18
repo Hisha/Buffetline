@@ -94,21 +94,11 @@ local function EntryByID(list, itemID)
 	end
 end
 
--- Sanitize a restock target so corrupted SavedVariables or UI input can never
--- produce an uncontrolled purchase burst.
-local function SanitizeTarget(value)
-	local target = floor(tonumber(value) or 0)
-	if target < 0 then
-		return 0
-	end
-	if target > 9999 then
-		return 9999
-	end
-	return target
-end
-
 local function TryRestock(kind, target, vendorList, level)
-	target = SanitizeTarget(target)
+	-- Configuration is already sanitized to a valid 0..1000 integer by the
+	-- shared Core validator (initialization, options, slash). This is only a
+	-- last-line defense so a purchase never runs on unsanitized configuration.
+	target = BuffetLine.SanitizeTarget(target) or 0
 	if #vendorList == 0 then
 		return
 	end
