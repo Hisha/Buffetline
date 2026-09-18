@@ -2,6 +2,7 @@ local _, BuffetLine = ...
 
 local panel
 local widgets
+local targets = {}
 local refreshing = false
 
 local function OpenOptionsPanel()
@@ -34,26 +35,18 @@ local function MakeCheck(parent, frameName, y, labelText, getter, setter)
 	return check
 end
 
-local function DisplayNumber(value)
-	local v = tonumber(value)
-	if not v or v ~= v or v < 0 then
-		v = 0
-	end
-	return tostring(math.floor(v))
-end
-
 -- Commit one target EditBox. Only a user edit (box.dirty) commits; a
 -- programmatic refresh/repaint never does. Valid 0..1000 integers are stored;
 -- anything else is rejected, the box is repainted from the stored value, and a
 -- message is printed so invalid input never reaches SavedVariables.
 local function CommitNumberBox(box, getter, setter)
-	if not box.dirty then
+	if refreshing or not BuffetLineDB or not box.dirty then
 		return
 	end
 	box.dirty = false
 	local value = BuffetLine.SanitizeTarget(box:GetText())
 	if not value then
-		box:SetText(DisplayNumber(getter()))
+		box:SetText(tostring(getter()))
 		BuffetLine.Print(string.format(
 			"%s restock target must be an integer from 0 through 1000.",
 			box.commitLabel))
@@ -63,77 +56,52 @@ local function CommitNumberBox(box, getter, setter)
 end
 
 local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind, getter, setter)
+	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	label:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y - 5)
+	label:SetText(labelText)
 	local box = CreateFrame("EditBox", frameName, parent, "InputBoxTemplate")
 	box.kind = kind
 	box.commitLabel = commitLabel
-	box.dirty = false
+	box:SetPoint("TOPLEFT", parent, "TOPLEFT", 230, y)
 	box:SetWidth(44)
 	box:SetHeight(22)
 	box:SetAutoFocus(false)
-
-	-- Explicitly provide the EditBox text font for the 3.3.5 client.
-	box:SetFontObject(ChatFontNormal)
-	box:SetTextColor(1, 1, 1, 1)
-	box:SetJustifyH("LEFT")
-
-	box:SetText(DisplayNumber(getter()))
-	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	label:SetPoint("RIGHT", box, "LEFT", -4, 4)
-	label:SetText(labelText)
-	box:SetPoint("LEFT", parent, "LEFT", 230, y)
 	box:SetScript("OnTextChanged", function(self, userInput)
-		if userInput and not refreshing then
-			self.dirty = true
-		end
-	end)
-	box:SetScript("OnEditFocusLost", function(self)
-		CommitNumberBox(self, getter, setter)
+		if userInput and not refreshing then self.dirty = true end
 	end)
 	box:SetScript("OnEnterPressed", function(self)
 		CommitNumberBox(self, getter, setter)
 		self:ClearFocus()
 	end)
+	box:SetScript("OnEditFocusLost", function(self)
+		CommitNumberBox(self, getter, setter)
+		self:HighlightText(0, 0)
+	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self.dirty = false
-		self:SetText(DisplayNumber(getter()))
+		if BuffetLineDB then self:SetText(tostring(getter())) end
 		self:ClearFocus()
 	end)
 	box.commit = function(self)
 		CommitNumberBox(self, getter, setter)
 	end
+	targets[#targets + 1] = box
 	return box
 end
 
 function BuffetLine.RefreshOptions()
-    if refreshing or not widgets then
-        return
-    end
-
-    if widgets.food then
-        widgets.food.dirty = false
-    end
-
-    if widgets.drink then
-        widgets.drink.dirty = false
-    end
-
-    refreshing = true
-
-    widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
-    widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
-    widgets.restock:SetChecked(
-        BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false
-    )
-
-    widgets.food:SetText(
-        DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.food)
-    )
-
-    widgets.drink:SetText(
-        DisplayNumber(BuffetLineDB.restock and BuffetLineDB.restock.drink)
-    )
-
-    refreshing = false
+	if refreshing or not widgets or not BuffetLineDB then return end
+	refreshing = true
+	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
+	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
+	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
+	for _, box in ipairs(targets) do
+		-- Discard pending text before clearing focus; refresh must never save it.
+		box.dirty = false
+		box:SetText(tostring(BuffetLineDB.restock[box.kind]))
+		box:ClearFocus()
+	end
+	refreshing = false
 end
 
 function BuffetLine.SetLocked(value)
@@ -181,6 +149,7 @@ end
 function BuffetLine.BuildOptions()
 	panel = CreateFrame("Frame", "BuffetLineOptionsPanel", UIParent)
 	panel.name = "BuffetLine"
+	panel:Hide()
 	panel.refresh = BuffetLine.RefreshOptions
 	if InterfaceOptions_AddCategory then
 		InterfaceOptions_AddCategory(panel)
@@ -188,6 +157,7 @@ function BuffetLine.BuildOptions()
 	BuffetLine.OptionsPanel = panel
 
 	widgets = {}
+	targets = {}
 	widgets.lock = MakeCheck(panel, "BuffetLineOptLock", -16, "Lock widget position", function()
 		return BuffetLineDB.locked
 	end, BuffetLine.SetLocked)
@@ -213,14 +183,9 @@ function BuffetLine.BuildOptions()
 	end)
 
 	panel:SetScript("OnHide", function()
-		if not widgets then
-			return
-		end
-		if widgets.food and widgets.food.commit then
-			widgets.food:commit()
-		end
-		if widgets.drink and widgets.drink.commit then
-			widgets.drink:commit()
+		for _, box in ipairs(targets) do
+			box:commit()
+			box:ClearFocus()
 		end
 	end)
 
@@ -248,9 +213,7 @@ function BuffetLine.BuildOptions()
 	note3:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -240)
 	note3:SetText("Also configurable with /buffetline commands.")
 
-	panel:SetScript("OnShow", function()
-	    BuffetLine.RefreshOptions()
-	end)
+	panel:SetScript("OnShow", BuffetLine.RefreshOptions)
 end
 
 SLASH_BUFFETLINE1 = "/buffetline"
