@@ -86,14 +86,9 @@ local function TryRestock(kind, target, vendorList)
 	end
 	deficit = math.min(deficit, space)
 
-	local price, priceType
-	local ok = pcall(function()
-		price, priceType = GetMerchantItemCostInfo(stock.index)
-	end)
-	if ok and type(price) == "number" and type(priceType) == "number" and priceType == 0 then
-		if price > 0 then
-			deficit = math.min(deficit, math.floor(GetMoney() / price))
-		end
+	local altCostTypes = GetMerchantItemCostInfo(stock.index)
+	if type(altCostTypes) == "number" and altCostTypes > 0 then
+		return
 	end
 
 	if deficit <= 0 then
