@@ -26,6 +26,37 @@ BuffetLine.CONJURED = {
 	[43523] = true,
 }
 
+-- Slice 5: the conjured set splits by role. Classic conjured mage food restores
+-- health only and belongs to the Food role; classic conjured mage water restores
+-- mana only and belongs to the Drink role. Both are preferred over purchased
+-- normal items once the player level makes them usable. The combined
+-- health+mana Mage refreshments (34062, 43518, 43523) remain conjured but stay
+-- out of these two role tables so Slice 6 can give them a dedicated button.
+-- Buffet's own conjfood/conjwater lists put 43518/43523/34062 in both, which is
+-- what separates them from the role-specific items below.
+BuffetLine.CONJ_FOOD = {
+	[1113] = true,
+	[1114] = true,
+	[1487] = true,
+	[5349] = true,
+	[8075] = true,
+	[8076] = true,
+	[22895] = true,
+	[22019] = true,
+}
+
+BuffetLine.CONJ_WATER = {
+	[5350] = true,
+	[2288] = true,
+	[2136] = true,
+	[3772] = true,
+	[8077] = true,
+	[8078] = true,
+	[8079] = true,
+	[30703] = true,
+	[22018] = true,
+}
+
 BuffetLine.DEFAULTS = {
 	locked = false,
 	orientation = "horizontal",
@@ -194,7 +225,11 @@ local function ScanBags()
 				if not meta then
 					unresolved = unresolved + 1
 				elseif meta.minLevel <= level then
-					if BuffetLine.CONJURED[itemID] then
+					if BuffetLine.CONJ_FOOD[itemID] then
+						BucketAdd(b.conjFood, itemID, meta, bag, slot, link, count)
+					elseif BuffetLine.CONJ_WATER[itemID] then
+						BucketAdd(b.conjDrink, itemID, meta, bag, slot, link, count)
+					elseif BuffetLine.CONJURED[itemID] then
 						BucketAdd(b.mageFood, itemID, meta, bag, slot, link, count)
 					else
 						local kind = UseClass(itemID)
@@ -215,9 +250,9 @@ end
 function BuffetLine.BestNormal(kind)
 	local b = BuffetLine.buckets
 	if kind == "food" then
-		return BestOf(b.food)
+		return BestOf(b.conjFood) or BestOf(b.food)
 	elseif kind == "drink" then
-		return BestOf(b.drink) or BestOf(b.conjDrink)
+		return BestOf(b.conjDrink) or BestOf(b.drink)
 	end
 	return nil
 end
