@@ -2,7 +2,7 @@
 ## Title: BuffetLine
 ## Notes: Three-button consumable widget for Mage Food, Food, and Drink.
 ## Author: Hisha
-## Version: 1.1.4
+## Version: 1.1.5
 ## SavedVariables: BuffetLineDB
 ## SavedVariablesPerCharacter: BuffetLineCharDB
 
