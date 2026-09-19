@@ -69,14 +69,17 @@ BuffetLine.CONJ_REFRESH = {
 }
 
 BuffetLine.DEFAULTS = {
-	locked = false,
-	orientation = "horizontal",
-	position = nil,
-	restock = {
-		enabled = false,
-		food = 20,
-		drink = 20,
-	},
+    locked = false,
+    orientation = "horizontal",
+    position = nil,
+}
+
+BuffetLine.CHAR_DEFAULTS = {
+    restock = {
+        enabled = false,
+        food = 20,
+        drink = 20,
+    },
 }
 
 -- Schema version of the saved widget position. Bump this whenever the stored
@@ -424,9 +427,14 @@ end)
 
 function BuffetLine.OnAddonLoaded()
 	local db = BuffetLineDB
+	local charDB = BuffetLineCharDB
 	if type(db) ~= "table" then
 		db = {}
 		BuffetLineDB = db
+	end
+	if type(charDB) ~= "table" then
+	    charDB = {}
+	    BuffetLineCharDB = charDB
 	end
 	for key, value in pairs(BuffetLine.DEFAULTS) do
 		if db[key] == nil then
@@ -441,25 +449,30 @@ function BuffetLine.OnAddonLoaded()
 			end
 		end
 	end
-	if type(db.restock) ~= "table" then
-		db.restock = {}
+	if type(charDB.restock) ~= "table" then
+	    charDB.restock = {}
 	end
-	for key, value in pairs(BuffetLine.DEFAULTS.restock) do
-		if db.restock[key] == nil then
-			db.restock[key] = value
-		end
+
+	for key, value in pairs(BuffetLine.CHAR_DEFAULTS.restock) do
+	    if charDB.restock[key] == nil then
+	        charDB.restock[key] = value
+	    end
 	end
+
 	db.locked = db.locked and true or false
+
 	if db.orientation ~= "vertical" then
-		db.orientation = "horizontal"
+	    db.orientation = "horizontal"
 	end
-	db.restock.enabled = db.restock.enabled and true or false
-	-- Invalid or legacy restock targets reset to the normal default; only valid
-	-- 0..1000 integer targets survive.
-	db.restock.food = BuffetLine.SanitizeTarget(db.restock.food)
-		or BuffetLine.DEFAULTS.restock.food
-	db.restock.drink = BuffetLine.SanitizeTarget(db.restock.drink)
-		or BuffetLine.DEFAULTS.restock.drink
+
+	charDB.restock.enabled = charDB.restock.enabled and true or false
+
+	-- Invalid restock targets reset to the per-character defaults.
+	charDB.restock.food = BuffetLine.SanitizeTarget(charDB.restock.food)
+	    or BuffetLine.CHAR_DEFAULTS.restock.food
+
+	charDB.restock.drink = BuffetLine.SanitizeTarget(charDB.restock.drink)
+	    or BuffetLine.CHAR_DEFAULTS.restock.drink
 	-- A saved position is usable only when it matches this schema version, the
 	-- Food-authoritative TOPLEFT representation, and plausible coordinates that
 	-- could actually place the widget on screen.

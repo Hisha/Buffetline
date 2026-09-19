@@ -4,6 +4,7 @@
 ## Author: Hisha
 ## Version: 1.1.4
 ## SavedVariables: BuffetLineDB
+## SavedVariablesPerCharacter: BuffetLineCharDB
 
 Core.lua
 Restock.lua

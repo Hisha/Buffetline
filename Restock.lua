@@ -159,11 +159,11 @@ local function TryRestock(kind, target, vendorList, level)
 end
 
 function BuffetLine.DoRestock()
-	local db = BuffetLineDB
-	local restock = db and db.restock
-	if not (restock and restock.enabled) then
-		return
-	end
+    local charDB = BuffetLineCharDB
+    local restock = charDB and charDB.restock
+    if not (restock and restock.enabled) then
+        return
+    end
 	if not (MerchantFrame and MerchantFrame:IsShown()) then
 		return
 	end

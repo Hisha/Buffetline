@@ -40,7 +40,7 @@ end
 -- anything else is rejected, the box is repainted from the stored value, and a
 -- message is printed so invalid input never reaches SavedVariables.
 local function CommitNumberBox(box, getter, setter)
-	if refreshing or not BuffetLineDB or not box.dirty then
+	if refreshing or not BuffetLineCharDB or not box.dirty then
 		return
 	end
 	box.dirty = false
@@ -79,7 +79,7 @@ local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind,
 	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self.dirty = false
-		if BuffetLineDB then self:SetText(tostring(getter())) end
+		if BuffetLineCharDB then self:SetText(tostring(getter())) end
 		self:ClearFocus()
 	end)
 	box.commit = function(self)
@@ -90,18 +90,20 @@ local function MakeNumberBox(parent, frameName, y, labelText, commitLabel, kind,
 end
 
 function BuffetLine.RefreshOptions()
-	if refreshing or not widgets or not BuffetLineDB then return end
-	refreshing = true
-	widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
-	widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
-	widgets.restock:SetChecked(BuffetLineDB.restock and BuffetLineDB.restock.enabled and true or false)
-	for _, box in ipairs(targets) do
-		-- Discard pending text before clearing focus; refresh must never save it.
-		box.dirty = false
-		box:SetText(tostring(BuffetLineDB.restock[box.kind]))
-		box:ClearFocus()
-	end
-	refreshing = false
+    if refreshing or not widgets or not BuffetLineDB or not BuffetLineCharDB then return end
+    refreshing = true
+
+    widgets.lock:SetChecked(BuffetLineDB.locked and true or false)
+    widgets.vertical:SetChecked(BuffetLineDB.orientation == "vertical")
+    widgets.restock:SetChecked(BuffetLineCharDB.restock.enabled and true or false)
+
+    for _, box in ipairs(targets) do
+        box.dirty = false
+        box:SetText(tostring(BuffetLineCharDB.restock[box.kind]))
+        box:ClearFocus()
+    end
+
+    refreshing = false
 end
 
 function BuffetLine.SetLocked(value)
@@ -127,9 +129,9 @@ function BuffetLine.SetOrientation(value)
 end
 
 function BuffetLine.SetRestockEnabled(value)
-	BuffetLineDB.restock.enabled = value and true or false
+	BuffetLineCharDB.restock.enabled = value and true or false
 	BuffetLine.RefreshOptions()
-	if BuffetLineDB.restock.enabled then
+	if BuffetLineCharDB.restock.enabled then
 		BuffetLine.Print("Auto-restock enabled.")
 	else
 		BuffetLine.Print("Auto-restock disabled.")
@@ -141,7 +143,7 @@ function BuffetLine.SetRestockTarget(kind, value)
 	if not target then
 		return false
 	end
-	BuffetLineDB.restock[kind] = target
+	BuffetLineCharDB.restock[kind] = target
 	BuffetLine.RefreshOptions()
 	return true
 end
@@ -167,17 +169,17 @@ function BuffetLine.BuildOptions()
 	end, BuffetLine.SetOrientation)
 
 	widgets.restock = MakeCheck(panel, "BuffetLineOptRestock", -68, "Auto-restock Food and Drink at vendors", function()
-		return BuffetLineDB.restock.enabled
+		return BuffetLineCharDB.restock.enabled
 	end, BuffetLine.SetRestockEnabled)
 
 	widgets.food = MakeNumberBox(panel, "BuffetLineOptFood", -102, "Food restock target:", "Food", "food", function()
-		return BuffetLineDB.restock.food
+		return BuffetLineCharDB.restock.food
 	end, function(value)
 		BuffetLine.SetRestockTarget("food", value)
 	end)
 
 	widgets.drink = MakeNumberBox(panel, "BuffetLineOptDrink", -128, "Drink restock target:", "Drink", "drink", function()
-		return BuffetLineDB.restock.drink
+		return BuffetLineCharDB.restock.drink
 	end, function(value)
 		BuffetLine.SetRestockTarget("drink", value)
 	end)
@@ -221,6 +223,7 @@ SLASH_BUFFETLINE2 = "/bf"
 SlashCmdList.BUFFETLINE = function(msg)
 	local arg = strlower(strtrim(msg or ""))
 	local db = BuffetLineDB
+	local charDB = BuffetLineCharDB
 
 	if arg == "" then
 		OpenOptionsPanel()
@@ -243,20 +246,20 @@ SlashCmdList.BUFFETLINE = function(msg)
 		end
 		BuffetLine.Print("Position reset.")
 	elseif arg == "restock" then
-		BuffetLine.SetRestockEnabled(not db.restock.enabled)
+		BuffetLine.SetRestockEnabled(not charDB.restock.enabled)
 	elseif strmatch(arg, "^restock%s+[01]$") then
 		BuffetLine.SetRestockEnabled(tonumber(strmatch(arg, "%d+")) == 1)
 	elseif strmatch(arg, "^food%s+%d+$") then
 		local ok = BuffetLine.SetRestockTarget("food", tonumber(strmatch(arg, "%d+")))
 		if ok then
-			BuffetLine.Print("Food restock target set to " .. db.restock.food .. ".")
+			BuffetLine.Print("Food restock target set to " .. charDB.restock.food .. ".")
 		else
 			BuffetLine.Print("Food restock target must be an integer from 0 through 1000.")
 		end
 	elseif strmatch(arg, "^drink%s+%d+$") then
 		local ok = BuffetLine.SetRestockTarget("drink", tonumber(strmatch(arg, "%d+")))
 		if ok then
-			BuffetLine.Print("Drink restock target set to " .. db.restock.drink .. ".")
+			BuffetLine.Print("Drink restock target set to " .. charDB.restock.drink .. ".")
 		else
 			BuffetLine.Print("Drink restock target must be an integer from 0 through 1000.")
 		end
